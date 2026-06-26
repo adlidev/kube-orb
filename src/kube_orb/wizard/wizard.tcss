@@ -1,0 +1,115 @@
+Screen {
+    background: $surface;
+}
+
+#wizard-scroll {
+    height: 1fr;
+    padding: 1 2;
+}
+
+.wizard-section-header {
+    color: $accent;
+    text-style: bold;
+    margin-top: 1;
+    margin-bottom: 0;
+    border-bottom: solid $accent;
+}
+
+.wizard-hint {
+    color: $text-muted;
+    margin-bottom: 0;
+}
+
+.wizard-subsection {
+    border: tall $panel;
+    padding: 0 1;
+    margin-bottom: 1;
+    height: auto;
+}
+
+.wizard-row {
+    height: auto;
+    margin-bottom: 1;
+}
+
+.wizard-row Button {
+    margin-right: 1;
+}
+
+/* Namespace row */
+#ns-input {
+    width: 1fr;
+}
+
+/* Deployment list */
+#dep-scroll {
+    height: 8;
+    border: tall $panel;
+    margin-bottom: 1;
+}
+
+#dep-empty {
+    color: $warning;
+    margin: 1 0;
+}
+
+/* Config select */
+#cfg-select {
+    margin-bottom: 1;
+    width: 1fr;
+}
+
+/* String check lists */
+#filter-scroll, #hl-scroll, #mon-scroll {
+    height: 5;
+    border: tall $panel;
+    margin-bottom: 1;
+}
+
+/* String inputs */
+#filter-input, #hl-input, #mon-input {
+    margin-bottom: 0;
+}
+
+/* Dump options */
+#dump-opts {
+    border: tall $panel;
+    padding: 0 1;
+    margin-bottom: 1;
+    height: auto;
+}
+
+/* Health options */
+#health-opts {
+    padding: 0 1;
+    height: auto;
+}
+
+#health-section, #monitor-section {
+    height: auto;
+}
+
+/* Save name */
+#save-name {
+    margin-bottom: 1;
+}
+
+/* Launch / Cancel buttons */
+#launch {
+    margin-top: 1;
+    width: 3fr;
+}
+
+#cancel {
+    margin-top: 1;
+    width: 1fr;
+}
+
+Checkbox {
+    margin: 0 0 0 0;
+    height: auto;
+}
+
+Input {
+    margin-bottom: 1;
+}

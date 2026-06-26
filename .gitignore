@@ -1,4 +1,28 @@
+# Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Hatch
+.hatch/
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Textual
+.textual/
+
+# Editor
+.vscode/
+.idea/
+*.swp
 .DS_Store
+
+# Logs saved by the tool
+*.log

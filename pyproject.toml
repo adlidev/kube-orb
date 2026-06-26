@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "kube-illume"
+version = "0.1.0"
+description = "Interactive Kubernetes log viewer with TUI"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = ["kubernetes", "logs", "tui", "kubectl", "devtools"]
+dependencies = [
+    "textual>=0.61.0",
+    "click>=8.1",
+    "pyyaml>=6.0",
+]
+
+[project.scripts]
+kube-illume = "kube_illume.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kube_illume"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-bdd>=7.0",
+    "textual-dev>=0.61.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.hatch.envs.default]
+installer = "pip"
+dependencies = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "pytest-bdd>=7.0",
+    "textual-dev>=0.61.0",
+]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest {args}"
+dev  = "textual run --dev src/kube_illume/__main__.py"

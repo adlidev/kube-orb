@@ -95,6 +95,8 @@ build_and_load_images() {
 # ─── Deploy ───────────────────────────────────────────────────────────────────
 deploy() {
   info "Applying Kubernetes manifests ..."
+  # Namespace must exist before deployments — apply it first
+  kubectl apply -f "${SCRIPT_DIR}/k8s/namespace.yaml"
   kubectl apply -f "${SCRIPT_DIR}/k8s/"
 
   info "Waiting for pods to be ready (timeout 90s) ..."

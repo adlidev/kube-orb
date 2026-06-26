@@ -36,6 +36,7 @@ load: build
 
 deploy:
 	@echo "→ Applying manifests ..."
+	@kubectl apply -f $(SCRIPT_DIR)/k8s/namespace.yaml
 	@kubectl apply -f $(SCRIPT_DIR)/k8s/
 	@echo "→ Waiting for deployments to be ready ..."
 	@for svc in $(SERVICES); do \
