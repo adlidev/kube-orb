@@ -131,11 +131,9 @@ main view while it's open, and automatically resumes when you close it
 
 ### Resizing panes
 
-Drag a panel's header (the bar with its name and arrow) up or down to resize
-it against the main stream, which always keeps a 20-row minimum. If your
-terminal doesn't report mouse-drag motion reliably, press `L` instead to open
-a modal where you can type an exact percentage for each currently-visible,
-expanded pane.
+Press `L` to open a modal where you can set an exact percentage for each
+currently-visible, expanded pane. The main stream always keeps a 20-row
+minimum regardless of what you enter.
 
 ## Pattern syntax (filters / highlights / monitors)
 

@@ -35,8 +35,6 @@ restarting.
   for scripting or one-off inspection, instead of a live stream.
 - **Saved configs** — save a named combination of namespace, deployments, and
   patterns, and reload it later by name.
-- **Resizable panes** — drag a panel's header border, or press `L` to set
-  exact percentages if your terminal doesn't support mouse-drag reliably.
 
 ## Installation
 
