@@ -1,12 +1,21 @@
 # kube-orb
 
-An interactive terminal UI for tailing and searching Kubernetes pod logs across
-multiple pods and deployments at once — built with [Textual](https://textual.textualize.io/).
+Watching logs across a Kubernetes cluster usually means juggling multiple
+`kubectl logs` windows and grepping after the fact. kube-orb streams
+`kubectl logs -f` from every pod in your selected deployments into one merged,
+colorized view — and lets you filter, highlight, and search *while it's
+streaming*.
 
-kube-orb streams `kubectl logs -f` from every pod in your selected deployments
-into one merged, colorized view, with live filtering, highlighting, a passive
-"monitor" panel for tracking specific patterns without losing your place, live
-search, and pod health/restart alerts.
+Built with [Textual](https://textual.textualize.io/), kube-orb is a full
+terminal UI: an interactive setup wizard walks you through picking a namespace,
+deployments, and filter patterns — no flags required — or skip straight to the
+viewer with CLI arguments if you prefer. Save named session configs to reload
+your exact setup later; passively collect rare events in a monitor panel
+without losing your scroll position; get alerted when pods restart or go
+unhealthy; and add or remove deployments from the live stream without
+restarting.
+
+![kube-orb viewer](docs/screenshot-viewer.png)
 
 ## Features
 
