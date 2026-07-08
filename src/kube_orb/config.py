@@ -33,6 +33,25 @@ def _load_yaml(path: Path) -> dict:
         return yaml.safe_load(f) or {}
 
 
+def _normalize_string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    normalized: list[str] = []
+    for item in value:
+        if isinstance(item, str):
+            normalized.append(item)
+        elif isinstance(item, list):
+            # A hand-edited strings.yaml with an unquoted bracketed literal
+            # like "[debug]" parses as YAML flow-sequence syntax (a nested
+            # list) instead of the string the user meant. Reconstruct the
+            # original bracketed text rather than losing the pattern or
+            # emitting Python's list repr (e.g. "['debug']").
+            normalized.append(f"[{', '.join(str(x) for x in item)}]")
+        elif item is not None:
+            normalized.append(str(item))
+    return normalized
+
+
 def _save_yaml(path: Path, data: dict) -> None:
     _ensure_dirs()
     with path.open("w") as f:
@@ -79,15 +98,16 @@ def is_regex_pattern(s: str) -> bool:
     return s.startswith("/") and s.endswith("/") and len(s) > 2
 
 
-def compile_pattern(s: str) -> re.Pattern:
+def compile_pattern(s: str, ignore_case: bool = False) -> re.Pattern:
     """
     Compile a match string into a regex Pattern.
     /pattern/ strings are compiled as regex.
     Plain strings are compiled as literal (re.escape).
     """
+    flags = re.IGNORECASE if ignore_case else 0
     if is_regex_pattern(s):
-        return re.compile(s[1:-1])
-    return re.compile(re.escape(s))
+        return re.compile(s[1:-1], flags)
+    return re.compile(re.escape(s), flags)
 
 
 def matches(line: str, patterns: list[re.Pattern]) -> bool:
@@ -95,8 +115,8 @@ def matches(line: str, patterns: list[re.Pattern]) -> bool:
     return any(p.search(line) for p in patterns)
 
 
-def compile_patterns(strings: list[str]) -> list[re.Pattern]:
-    return [compile_pattern(s) for s in strings]
+def compile_patterns(strings: list[str], ignore_case: bool = False) -> list[re.Pattern]:
+    return [compile_pattern(s, ignore_case) for s in strings]
 
 
 # ─── Saved strings ────────────────────────────────────────────────────────────
@@ -104,9 +124,9 @@ def compile_patterns(strings: list[str]) -> list[re.Pattern]:
 def load_saved_strings() -> SavedStrings:
     data = _load_yaml(STRINGS_FILE)
     return SavedStrings(
-        filters=data.get("filters", []),
-        highlights=data.get("highlights", []),
-        monitors=data.get("monitors", []),
+        filters=_normalize_string_list(data.get("filters", [])),
+        highlights=_normalize_string_list(data.get("highlights", [])),
+        monitors=_normalize_string_list(data.get("monitors", [])),
     )
 
 
@@ -148,6 +168,18 @@ def list_saved_configs(namespace: str) -> list[str]:
     return [p.stem for p in sorted(ns_dir.glob("*.yaml"))]
 
 
+def list_all_saved_configs() -> list[tuple[str, str]]:
+    """Return (namespace, name) for every saved config across all namespaces."""
+    if not NAMESPACES_DIR.exists():
+        return []
+    result = []
+    for ns_dir in sorted(NAMESPACES_DIR.iterdir()):
+        if ns_dir.is_dir():
+            for p in sorted(ns_dir.glob("*.yaml")):
+                result.append((ns_dir.name, p.stem))
+    return result
+
+
 def load_session_config(namespace: str, name: str) -> SessionConfig | None:
     path = _ns_config_path(namespace, name)
     data = _load_yaml(path)
@@ -161,9 +193,14 @@ def load_session_config(namespace: str, name: str) -> SessionConfig | None:
         mode=LogMode(data.get("mode", "stream")),
         tail=data.get("tail"),
         since=data.get("since"),
-        filters=data.get("filters", []),
-        highlights=data.get("highlights", []),
-        monitors=data.get("monitors", []),
+        filters=_normalize_string_list(data.get("filters", [])),
+        highlights=_normalize_string_list(data.get("highlights", [])),
+        monitors=_normalize_string_list(data.get("monitors", [])),
+        filters_ignore_case=data.get("filters_ignore_case", False),
+        highlights_ignore_case=data.get("highlights_ignore_case", False),
+        monitors_ignore_case=data.get("monitors_ignore_case", False),
+        line_wrap=data.get("line_wrap", True),
+        color_full_line=data.get("color_full_line", False),
         health=HealthConfig(
             enabled=health_data.get("enabled", False),
             interval_minutes=health_data.get("interval_minutes", 5),
@@ -190,6 +227,11 @@ def save_session_config(config: SessionConfig) -> None:
         "filters": config.filters,
         "highlights": config.highlights,
         "monitors": config.monitors,
+        "filters_ignore_case": config.filters_ignore_case,
+        "highlights_ignore_case": config.highlights_ignore_case,
+        "monitors_ignore_case": config.monitors_ignore_case,
+        "line_wrap": config.line_wrap,
+        "color_full_line": config.color_full_line,
         "health": {
             "enabled": config.health.enabled,
             "interval_minutes": config.health.interval_minutes,

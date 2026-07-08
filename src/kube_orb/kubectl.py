@@ -189,10 +189,16 @@ async def stream_logs(
     Async generator yielding LogLine objects from a single pod.
     Runs kubectl logs -f in a subprocess, reads lines as they arrive.
     Caller should run one coroutine per pod and merge with asyncio.
+
+    NOTE: unlike dump_logs(), `since` defaults to "0s" here (not omitted)
+    when unset. Without a --since bound, `kubectl logs -f` first dumps the
+    pod's entire buffered history before it starts following — for a live
+    stream that means a session, by default, only collects new lines from
+    the moment it starts rather than replaying everything. Pass an explicit
+    `since` (e.g. "1h") to opt into a look-back window instead.
     """
     args = ["kubectl", "logs", "-f", pod_name, "-n", namespace, "--timestamps=false"]
-    if since:
-        args += ["--since", since]
+    args += ["--since", since or "0s"]
     if tail is not None:
         args += ["--tail", str(tail)]
 

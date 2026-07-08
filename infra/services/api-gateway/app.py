@@ -61,17 +61,17 @@ def simulate_request():
     total_ms = upstream_ms + max(0.5, random.gauss(3, 1))
 
     r = random.random()
-    if r < 0.85:
+    if r < 0.93:
         status = 200 if method == "GET" else (201 if method == "POST" else 200)
-    elif r < 0.90:
+    elif r < 0.96:
         status = 400
-    elif r < 0.93:
+    elif r < 0.975:
         status = 401
-    elif r < 0.95:
+    elif r < 0.984:
         status = 404
-    elif r < 0.97:
+    elif r < 0.992:
         status = 429
-    elif r < 0.99:
+    elif r < 0.997:
         status = 503
     else:
         status = 500

@@ -3,11 +3,11 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "kube-illume"
+name = "kube-orb"
 version = "0.1.0"
 description = "Interactive Kubernetes log viewer with TUI"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = { file = "LICENSE" }
 keywords = ["kubernetes", "logs", "tui", "kubectl", "devtools"]
 dependencies = [
     "textual>=0.61.0",
@@ -15,11 +15,18 @@ dependencies = [
     "pyyaml>=6.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/adlidev/kube-orb"
+Repository = "https://github.com/adlidev/kube-orb"
+Documentation = "https://github.com/adlidev/kube-orb/blob/main/docs/USER_GUIDE.md"
+Issues = "https://github.com/adlidev/kube-orb/issues"
+
 [project.scripts]
-kube-illume = "kube_illume.cli:main"
+kube-orb        = "kube_orb.cli:main"
+kube-orb-inject = "kube_orb.inject:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/kube_illume"]
+packages = ["src/kube_orb"]
 
 [dependency-groups]
 dev = [
@@ -32,6 +39,7 @@ dev = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+pythonpath = ["src"]
 
 [tool.hatch.envs.default]
 installer = "pip"
@@ -44,4 +52,4 @@ dependencies = [
 
 [tool.hatch.envs.default.scripts]
 test = "pytest {args}"
-dev  = "textual run --dev src/kube_illume/__main__.py"
+dev  = "textual run --dev src/kube_orb/__main__.py"

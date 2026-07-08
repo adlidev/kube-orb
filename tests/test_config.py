@@ -1,16 +1,21 @@
 """
 Tests for config.py — string parsing, pattern matching, save/load.
 """
-import re
-import pytest
-
-from kube_illume.config import (
+from kube_orb.config import (
+    add_to_saved_strings,
     compile_pattern,
     compile_patterns,
     is_regex_pattern,
+    list_all_saved_configs,
+    list_saved_configs,
+    load_saved_strings,
+    load_session_config,
     matches,
     parse_string_input,
+    save_saved_strings,
+    save_session_config,
 )
+from kube_orb.models import HealthConfig, LogMode, SavedStrings, SessionConfig
 
 
 # ─── parse_string_input ───────────────────────────────────────────────────────
@@ -73,7 +78,6 @@ class TestPatternMatching:
         assert p.search("status 200 ok") is None
 
     def test_plain_string_special_chars_escaped(self):
-        # Dots in plain strings should be literal, not regex wildcards
         p = compile_pattern("10.0.0.1")
         assert p.search("client 10.0.0.1 connected") is not None
         assert p.search("10X0X0X1") is None
@@ -92,14 +96,9 @@ class TestPatternMatching:
 
 class TestConfigPersistence:
     def test_saved_strings_roundtrip(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("kube_illume.config.CONFIG_DIR", tmp_path / ".config" / "kube-illume")
-        monkeypatch.setattr("kube_illume.config.STRINGS_FILE",
-                            tmp_path / ".config" / "kube-illume" / "strings.yaml")
-        monkeypatch.setattr("kube_illume.config.NAMESPACES_DIR",
-                            tmp_path / ".config" / "kube-illume" / "namespaces")
-
-        from kube_illume.config import load_saved_strings, save_saved_strings
-        from kube_illume.models import SavedStrings
+        monkeypatch.setattr("kube_orb.config.CONFIG_DIR", tmp_path / ".config" / "kube-orb")
+        monkeypatch.setattr("kube_orb.config.STRINGS_FILE", tmp_path / ".config" / "kube-orb" / "strings.yaml")
+        monkeypatch.setattr("kube_orb.config.NAMESPACES_DIR", tmp_path / ".config" / "kube-orb" / "namespaces")
 
         original = SavedStrings(
             filters=["DEBUG", "/health.*/"],
@@ -114,14 +113,9 @@ class TestConfigPersistence:
         assert loaded.monitors == original.monitors
 
     def test_session_config_roundtrip(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("kube_illume.config.CONFIG_DIR", tmp_path / ".config" / "kube-illume")
-        monkeypatch.setattr("kube_illume.config.STRINGS_FILE",
-                            tmp_path / ".config" / "kube-illume" / "strings.yaml")
-        monkeypatch.setattr("kube_illume.config.NAMESPACES_DIR",
-                            tmp_path / ".config" / "kube-illume" / "namespaces")
-
-        from kube_illume.config import load_session_config, save_session_config
-        from kube_illume.models import HealthConfig, LogMode, SessionConfig
+        monkeypatch.setattr("kube_orb.config.CONFIG_DIR", tmp_path / ".config" / "kube-orb")
+        monkeypatch.setattr("kube_orb.config.STRINGS_FILE", tmp_path / ".config" / "kube-orb" / "strings.yaml")
+        monkeypatch.setattr("kube_orb.config.NAMESPACES_DIR", tmp_path / ".config" / "kube-orb" / "namespaces")
 
         cfg = SessionConfig(
             namespace="production",
@@ -142,3 +136,38 @@ class TestConfigPersistence:
         assert loaded.filters == ["DEBUG"]
         assert loaded.health.enabled is True
         assert loaded.health.interval_minutes == 2
+
+    def test_add_to_saved_strings_deduplicates_and_appends(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("kube_orb.config.CONFIG_DIR", tmp_path / ".config" / "kube-orb")
+        monkeypatch.setattr("kube_orb.config.STRINGS_FILE", tmp_path / ".config" / "kube-orb" / "strings.yaml")
+        monkeypatch.setattr("kube_orb.config.NAMESPACES_DIR", tmp_path / ".config" / "kube-orb" / "namespaces")
+
+        save_saved_strings(SavedStrings(filters=["ERROR"]))
+        add_to_saved_strings("filters", ["ERROR", "WARN"])
+
+        saved = load_saved_strings()
+        assert saved.filters == ["ERROR", "WARN"]
+
+    def test_load_saved_strings_handles_legacy_unquoted_bracketed_patterns(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("kube_orb.config.CONFIG_DIR", tmp_path / ".config" / "kube-orb")
+        monkeypatch.setattr("kube_orb.config.STRINGS_FILE", tmp_path / ".config" / "kube-orb" / "strings.yaml")
+        monkeypatch.setattr("kube_orb.config.NAMESPACES_DIR", tmp_path / ".config" / "kube-orb" / "namespaces")
+
+        path = tmp_path / ".config" / "kube-orb" / "strings.yaml"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("filters:\n- [debug]\nhighlights: []\nmonitors: []\n")
+
+        saved = load_saved_strings()
+        assert saved.filters == ["[debug]"]
+
+    def test_list_saved_configs_reports_all_namespaces(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("kube_orb.config.CONFIG_DIR", tmp_path / ".config" / "kube-orb")
+        monkeypatch.setattr("kube_orb.config.STRINGS_FILE", tmp_path / ".config" / "kube-orb" / "strings.yaml")
+        monkeypatch.setattr("kube_orb.config.NAMESPACES_DIR", tmp_path / ".config" / "kube-orb" / "namespaces")
+
+        save_session_config(SessionConfig(namespace="production", deployments=["api-gateway"], mode=LogMode.STREAM, name="alpha"))
+        save_session_config(SessionConfig(namespace="production", deployments=["auth-service"], mode=LogMode.DUMP, name="beta"))
+        save_session_config(SessionConfig(namespace="staging", deployments=["worker"], mode=LogMode.STREAM, name="gamma"))
+
+        assert list_saved_configs("production") == ["alpha", "beta"]
+        assert list_all_saved_configs() == [("production", "alpha"), ("production", "beta"), ("staging", "gamma")]

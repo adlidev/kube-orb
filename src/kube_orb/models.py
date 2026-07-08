@@ -95,19 +95,28 @@ class SessionConfig:
     deployments: list[str]       # selected deployment names
     mode: LogMode = LogMode.STREAM
 
-    # Dump-mode options (ignored in stream mode)
-    tail: int | None = None      # last N lines
-    since: str | None = None     # kubectl --since value e.g. "1h", "30m"
+    tail: int | None = None      # last N lines (dump mode only)
+    # kubectl --since value, e.g. "1h", "30m". Used by both modes: bounds how
+    # far back dump mode fetches (None = full history). In stream mode, None
+    # is passed to kubectl as "--since 0s" (see kubectl.stream_logs) so a
+    # live session only collects new lines instead of replaying history.
+    since: str | None = None
 
     # Active string sets for this session
     filters: list[str] = field(default_factory=list)
     highlights: list[str] = field(default_factory=list)
     monitors: list[str] = field(default_factory=list)   # stream only
 
+    # Case sensitivity (False = case-sensitive, True = ignore case)
+    filters_ignore_case: bool = False
+    highlights_ignore_case: bool = False
+    monitors_ignore_case: bool = False
+
     health: HealthConfig = field(default_factory=HealthConfig)
 
     # Display options
     color_full_line: bool = False  # True = color entire line; False = color pod name prefix only
+    line_wrap: bool = True
 
     # Config name — set when user chooses to save
     name: str | None = None

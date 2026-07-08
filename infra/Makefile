@@ -1,6 +1,6 @@
 CLUSTER_NAME   := logviewer-dev
 NAMESPACE      := logviewer-dev
-SERVICES       := api-gateway auth-service user-service notification-service worker
+SERVICES       := api-gateway auth-service user-service notification-service worker database cache scheduler
 SCRIPT_DIR     := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 .PHONY: help setup build load deploy status logs teardown clean
@@ -51,7 +51,7 @@ ifdef SERVICE
 	@kubectl logs -n $(NAMESPACE) -l app=$(SERVICE) --all-containers -f --prefix
 else
 	@kubectl logs -n $(NAMESPACE) --all-containers -f --prefix \
-		--selector='app in (api-gateway,auth-service,user-service,notification-service,worker)'
+		--selector='app in (api-gateway,auth-service,user-service,notification-service,worker,database,cache,scheduler)'
 endif
 
 restart:

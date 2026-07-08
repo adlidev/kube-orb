@@ -16,9 +16,10 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical
 from textual.message import Message
-from textual.widgets import DataTable, Label, Static
+from textual.widgets import DataTable
 
 from ...models import HealthConfig, PodStatus
+from ..widgets import DragResizeHeader
 
 
 @dataclass
@@ -32,12 +33,20 @@ class HealthPanel(Vertical):
     """
     Collapsible health panel.
     Hidden when no unhealthy rows exist.
+    Double-click a row to add that deployment to the log stream.
+    D key dismisses the selected row.
     """
 
+    class AddToStream(Message):
+        """Posted when the user double-clicks a pod row to add it to the stream."""
+        def __init__(self, deployment_name: str) -> None:
+            super().__init__()
+            self.deployment_name = deployment_name
+
     BINDINGS = [
-        Binding("r",       "restart_pod",        "Restart pod",   show=True),
+        Binding("r",       "restart_pod",        "Restart pod",     show=True),
         Binding("shift+r", "rollout_restart",     "Rollout restart", show=True),
-        Binding("c",       "toggle_collapse",     "Collapse",      show=False),
+        Binding("d",       "dismiss_row",         "Dismiss row",     show=True),
     ]
 
     def __init__(self, config: HealthConfig, **kwargs) -> None:
@@ -53,7 +62,7 @@ class HealthPanel(Vertical):
 
     def on_mount(self) -> None:
         table = self.query_one(DataTable)
-        table.add_columns("Pod", "Status", "Restarts (Δ+total)", "Age")
+        table.add_columns("Pod", "Status", "Restarts (Δ+total)", "Age", "Hint")
 
     def update_pod(self, status: PodStatus, restart_delta: int) -> None:
         """Called by the health poller with fresh status for an unhealthy pod."""
@@ -76,17 +85,21 @@ class HealthPanel(Vertical):
 
         self._show_panel()
 
-    def _format_row(self, row: _HealthRow) -> tuple[str, str, str, str]:
+    def _format_row(self, row: _HealthRow) -> tuple[str, str, str, str, str]:
         s = row.status
         age = _fmt_age(s.age_seconds)
         restarts = f"{row.restart_delta} (+{s.restart_count})"
         status_style = s.phase if s.is_healthy else f"[red]{s.phase}[/red]"
-        return s.name, status_style, restarts, age
+        hint = "dbl-click=stream  D=dismiss  R=restart"
+        return s.name, status_style, restarts, age, hint
 
     def _update_table_row(self, table: DataTable, row: _HealthRow) -> None:
         fmt = self._format_row(row)
-        for col_idx, value in enumerate(fmt):
-            table.update_cell(row.status.name, table.columns[col_idx].key, value)
+        # table.columns is a dict[ColumnKey, Column], not a positional list —
+        # indexing it by an int (e.g. table.columns[0]) raises KeyError.
+        # ordered_columns is the list form, in display order.
+        for column, value in zip(table.ordered_columns, fmt):
+            table.update_cell(row.status.name, column.key, value)
 
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         # Single click — just focus, no action
@@ -116,8 +129,18 @@ class HealthPanel(Vertical):
         now = time.monotonic()
         last = self._last_click.get(key, 0.0)
         if now - last < 0.5:
-            self._dismiss_row(key)
+            # Double-click → add this pod's deployment to the stream
+            row = self._rows.get(key)
+            if row:
+                self.post_message(self.AddToStream(row.status.deployment))
         self._last_click[key] = now
+
+    def action_dismiss_row(self) -> None:
+        table = self.query_one(DataTable)
+        if table.cursor_row < 0:
+            return
+        pod_name = str(table.get_cell_at((table.cursor_row, 0)))
+        self._dismiss_row(pod_name)
 
     def action_restart_pod(self) -> None:
         table = self.query_one(DataTable)
@@ -174,11 +197,8 @@ class HealthPanel(Vertical):
         self.query_one("#health-table").display = not self._collapsed
         self.query_one(_HealthHeader).update_collapsed(self._collapsed)
 
-    def action_toggle_collapse(self) -> None:
-        self.toggle_collapsed()
 
-
-class _HealthHeader(Static):
+class _HealthHeader(DragResizeHeader):
     def __init__(self, **kwargs) -> None:
         super().__init__("", **kwargs)
         self._count = 0
@@ -197,9 +217,6 @@ class _HealthHeader(Static):
         arrow = "▶" if self._collapsed else "▼"
         suffix = f" ({self._count} unhealthy)" if self._count else ""
         self.update(f"{arrow} [red]Pod Health{suffix}[/red]")
-
-    def on_click(self) -> None:
-        self.parent.toggle_collapsed()  # type: ignore[union-attr]
 
 
 def _fmt_age(seconds: float) -> str:

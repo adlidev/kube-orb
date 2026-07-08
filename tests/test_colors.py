@@ -1,8 +1,7 @@
 """
 Tests for colors.py — golden angle color assignment.
 """
-import pytest
-from kube_illume.colors import assign_colors, get_color
+from kube_orb.colors import assign_colors, get_color
 
 
 class TestAssignColors:

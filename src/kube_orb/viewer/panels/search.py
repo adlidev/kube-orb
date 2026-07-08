@@ -2,20 +2,23 @@
 SearchPanel — live search across the log buffer.
 
 Filters the main stream buffer in real time as the user types.
-Clicking a result pauses the main stream and jumps to that line.
+Double-clicking a result pauses the main stream and jumps to that line.
 """
 from __future__ import annotations
 
+import asyncio
 import re
+import time
 
 from rich.text import Text
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical
 from textual.message import Message
-from textual.widgets import Input, Label, ListItem, ListView, Static
+from textual.widgets import Input, Label, ListItem, ListView
 
 from ...models import LogLine
+from ..widgets import DragResizeHeader
 
 
 class SearchPanel(Vertical):
@@ -24,12 +27,11 @@ class SearchPanel(Vertical):
     DEFAULT_HEIGHT = "20%"
 
     BINDINGS = [
-        Binding("c",      "toggle_collapse", "Collapse", show=False),
-        Binding("escape", "close",           "Close search", show=False),
+        Binding("escape", "close", "Close search", show=False),
     ]
 
     class LineSelected(Message):
-        """Posted when user selects a search result."""
+        """Posted when user double-clicks a search result."""
         def __init__(self, line: LogLine) -> None:
             super().__init__()
             self.line = line
@@ -39,6 +41,9 @@ class SearchPanel(Vertical):
         self._collapsed = False
         self._results: list[LogLine] = []
         self._color_map: dict[str, str] = {}
+        self._pattern: re.Pattern | None = None
+        self._debounce_task: asyncio.Task | None = None
+        self._last_click: dict[int, float] = {}
 
     def compose(self) -> ComposeResult:
         yield _SearchHeader(id="search-header")
@@ -48,13 +53,20 @@ class SearchPanel(Vertical):
     def set_color_map(self, color_map: dict[str, str]) -> None:
         self._color_map = color_map
 
+    def set_wrap(self, wrap: bool) -> None:
+        lv = self.query_one("#search-results", ListView)
+        lv.set_class(wrap, "wrap-on")
+        lv.set_class(not wrap, "wrap-off")
+
     def search(self, buffer: list[LogLine], query: str) -> None:
-        """Run a search against the full log buffer and update results."""
         lv = self.query_one("#search-results", ListView)
         lv.clear()
         self._results = []
+        self._pattern = None
+        self._last_click.clear()
 
         if not query:
+            self.query_one(_SearchHeader).update_count(0)
             return
 
         try:
@@ -62,29 +74,44 @@ class SearchPanel(Vertical):
         except re.error:
             pattern = re.compile(re.escape(query), re.IGNORECASE)
 
-        matches = [line for line in buffer if pattern.search(line.content)]
-        self._results = matches
+        self._pattern = pattern
+        matched = [line for line in buffer if pattern.search(line.content)]
+        self._results = matched
 
-        for line in matches[-500:]:   # cap display at 500 results
+        for line in matched[-500:]:
             color = self._color_map.get(line.pod_name, "#ffffff")
             text = Text()
             text.append(f"[{line.pod_name}] ", style=color)
-            text.append(line.content)
+            _append_highlighted(text, line.content, pattern)
             lv.append(ListItem(Label(text)))
 
-        self.query_one(_SearchHeader).update_count(len(matches))
-
-    def on_input_changed(self, event: Input.Changed) -> None:
-        if event.input.id == "search-input":
-            # Delegate to app which owns the buffer
-            app = self.app
-            if hasattr(app, "_buffer"):
-                self.search(app._buffer, event.value)  # type: ignore[union-attr]
+        self.query_one(_SearchHeader).update_count(len(matched))
 
     def on_list_view_selected(self, event: ListView.Selected) -> None:
         idx = event.list_view.index
-        if idx is not None and idx < len(self._results):
-            self.post_message(self.LineSelected(self._results[idx]))
+        if idx is None:
+            return
+        now = time.monotonic()
+        last = self._last_click.get(idx, 0.0)
+        self._last_click[idx] = now
+        if now - last < 0.5:
+            # Double-click
+            if idx < len(self._results):
+                self.post_message(self.LineSelected(self._results[idx]))
+
+    def on_input_changed(self, event: Input.Changed) -> None:
+        if event.input.id == "search-input":
+            if self._debounce_task is not None:
+                self._debounce_task.cancel()
+            self._debounce_task = asyncio.get_event_loop().create_task(
+                self._debounced_search(event.value)
+            )
+
+    async def _debounced_search(self, query: str) -> None:
+        await asyncio.sleep(0.3)
+        app = self.app
+        if hasattr(app, "_buffer"):
+            self.search(app._buffer, query)  # type: ignore[union-attr]
 
     def toggle_collapsed(self) -> None:
         self._collapsed = not self._collapsed
@@ -92,14 +119,26 @@ class SearchPanel(Vertical):
             widget.display = not self._collapsed
         self.query_one(_SearchHeader).update_collapsed(self._collapsed)
 
-    def action_toggle_collapse(self) -> None:
-        self.toggle_collapsed()
-
     def action_close(self) -> None:
         self.display = False
+        try:
+            self.app.query_one("#stream-log").focus()
+        except Exception:
+            pass
 
 
-class _SearchHeader(Static):
+def _append_highlighted(text: Text, content: str, pattern: re.Pattern) -> None:
+    cursor = 0
+    for m in pattern.finditer(content):
+        if m.start() > cursor:
+            text.append(content[cursor:m.start()])
+        text.append(content[m.start():m.end()], style="bold #ffff00")
+        cursor = m.end()
+    if cursor < len(content):
+        text.append(content[cursor:])
+
+
+class _SearchHeader(DragResizeHeader):
     def __init__(self, **kwargs) -> None:
         super().__init__("", markup=True, **kwargs)
         self._count = 0
@@ -117,8 +156,5 @@ class _SearchHeader(Static):
     def _refresh(self) -> None:
         arrow = "▶" if self._collapsed else "▼"
         suffix = f" ({self._count} results)" if self._count else ""
-        hint = "" if self._collapsed else "  [dim]/ or Esc to close[/dim]"
+        hint = "" if self._collapsed else "  [dim]/ or Esc to close · drag to resize[/dim]"
         self.update(f"{arrow} Search{suffix}{hint}")
-
-    def on_click(self) -> None:
-        self.parent.toggle_collapsed()  # type: ignore[union-attr]

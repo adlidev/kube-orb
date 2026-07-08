@@ -1,5 +1,16 @@
 /* Viewer layout */
 
+Checkbox > .toggle--button {
+    color: $panel;
+    background: $panel-darken-1;
+}
+
+Checkbox.-on > .toggle--button {
+    color: $text;
+    background: $success;
+    text-style: bold;
+}
+
 Screen {
     layers: base overlay;
     background: $background;
@@ -13,7 +24,7 @@ Screen {
 
 MainStreamPanel {
     height: 1fr;
-    min-height: 5;
+    min-height: 20;
 }
 
 _StreamHeader {
@@ -24,6 +35,20 @@ _StreamHeader {
     height: 1;
 }
 
+/* Paused: bright, high-contrast bar that flashes (see _StreamHeader). */
+_StreamHeader.-paused {
+    background: $warning;
+    color: black;
+    text-style: bold;
+}
+
+/* Every other tick the timer flips this on, dimming the bar to create a
+   visible flash without moving anything. */
+_StreamHeader.-paused.-blink-off {
+    background: $panel;
+    color: $warning;
+}
+
 _LogDisplay {
     height: 1fr;
     scrollbar-gutter: stable;
@@ -32,7 +57,7 @@ _LogDisplay {
 /* ── Search panel ─────────────────────────────────────────────────────────── */
 
 SearchPanel {
-    height: 20%;
+    height: 10;
     min-height: 4;
     border-top: tall $accent;
 }
@@ -42,6 +67,10 @@ _SearchHeader {
     color: $accent;
     padding: 0 1;
     height: 1;
+}
+
+_SearchHeader:hover {
+    background: $accent 30%;
 }
 
 #search-input {
@@ -56,7 +85,7 @@ _SearchHeader {
 /* ── Monitor panel ────────────────────────────────────────────────────────── */
 
 MonitorPanel {
-    height: 20%;
+    height: 10;
     min-height: 4;
     border-top: tall $warning;
 }
@@ -68,15 +97,30 @@ _MonitorHeader {
     height: 1;
 }
 
-#monitor-list {
+_MonitorHeader:hover {
+    background: $warning 30%;
+}
+
+#monitor-scroll {
     height: 1fr;
+}
+
+#monitor-list {
+    height: auto;
+}
+
+#monitor-scroll.wrap-on Label {
+    width: 1fr;
+}
+
+#monitor-scroll.wrap-off Label {
+    width: auto;
 }
 
 /* ── Health panel ─────────────────────────────────────────────────────────── */
 
 HealthPanel {
-    height: auto;
-    max-height: 15%;
+    height: 8;
     min-height: 4;
     border-top: tall $error;
 }
@@ -85,6 +129,10 @@ _HealthHeader {
     background: $panel;
     padding: 0 1;
     height: 1;
+}
+
+_HealthHeader:hover {
+    background: $error 30%;
 }
 
 #health-table {
@@ -120,6 +168,16 @@ ConfirmDialog Horizontal, SaveDialog Horizontal {
 
 ConfirmDialog Button, SaveDialog Button {
     margin-right: 1;
+}
+
+/* ── ListView wrap control ───────────────────────────────────────────────── */
+
+ListView.wrap-on ListItem Label {
+    width: 1fr;
+}
+
+ListView.wrap-off ListItem Label {
+    width: auto;
 }
 
 /* ── Collapsed state ─────────────────────────────────────────────────────── */

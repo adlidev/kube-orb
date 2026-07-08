@@ -1,7 +1,14 @@
 Feature: Wizard string configuration
-  As a user setting up a kube-illume session
+  As a user setting up a kube-orb session
   I want to configure filter, highlight, and monitor strings
   So that I can refine my log view from the start
+
+  NOTE: implemented as plain async tests in test_wizard_bdd_scenarios.py, not
+  via pytest-bdd step definitions — pytest-bdd 8.1.0 does not await async
+  step functions (confirmed empirically: it calls them and discards the
+  returned coroutine without awaiting it, so an async @given/@when/@then
+  silently no-ops instead of running). This file is kept as the
+  human-readable spec; each scenario below has a same-named test.
 
   Background:
     Given the saved strings file contains filters ["DEBUG", "health"]

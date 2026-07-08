@@ -1,115 +1,329 @@
+/* ── Overall layout ──────────────────────────────────────────────────────── */
+
 Screen {
     background: $surface;
 }
 
-#wizard-scroll {
-    height: 1fr;
-    padding: 1 2;
-}
-
-.wizard-section-header {
-    color: $accent;
+#wizard-title {
+    text-align: center;
     text-style: bold;
-    margin-top: 1;
-    margin-bottom: 0;
+    color: $accent;
+    background: $panel;
+    padding: 1 0;
     border-bottom: solid $accent;
 }
 
-.wizard-hint {
+#wizard-footer {
+    text-align: center;
+    color: $text-muted;
+    background: $panel;
+    padding: 0 1;
+    border-top: solid $panel-lighten-2;
+}
+
+TabbedContent {
+    height: 1fr;
+}
+
+TabPane {
+    padding: 1 2;
+    height: 1fr;
+    layout: vertical;
+}
+
+#targets-scroll, #strings-scroll, #options-scroll {
+    height: 1fr;
+}
+
+/* ── Section headers ─────────────────────────────────────────────────────── */
+
+.section-title {
+    text-style: bold;
+    color: $accent;
+    padding: 1 0 1 2;
+    border-left: outer $accent;
+    background: $panel;
+    margin-top: 1;
+    margin-bottom: 1;
+}
+
+/* ── Labels and hints ────────────────────────────────────────────────────── */
+
+.field-label {
     color: $text-muted;
     margin-bottom: 0;
+    padding-left: 1;
 }
 
-.wizard-subsection {
-    border: tall $panel;
-    padding: 0 1;
-    margin-bottom: 1;
-    height: auto;
-}
-
-.wizard-row {
-    height: auto;
+.field-hint {
+    color: $text-muted;
+    padding-left: 1;
     margin-bottom: 1;
 }
 
-.wizard-row Button {
-    margin-right: 1;
-}
-
-/* Namespace row */
-#ns-input {
-    width: 1fr;
-}
-
-/* Deployment list */
-#dep-scroll {
-    height: 8;
-    border: tall $panel;
-    margin-bottom: 1;
-}
-
-#dep-empty {
+.field-warn {
     color: $warning;
+    padding-left: 1;
     margin: 1 0;
 }
 
-/* Config select */
-#cfg-select {
+/* ── Rules ───────────────────────────────────────────────────────────────── */
+
+Rule {
+    margin: 1 0;
+    color: $panel-lighten-2;
+}
+
+/* ── Rows ────────────────────────────────────────────────────────────────── */
+
+.row {
+    height: auto;
     margin-bottom: 1;
+}
+
+.row Button {
+    margin-right: 1;
+}
+
+/* ── Inputs — bright border to stand out ─────────────────────────────────── */
+
+Input {
+    background: $panel;
+    border: tall $primary-lighten-2;
+    margin-bottom: 1;
+}
+
+Input:focus {
+    border: tall $accent;
+}
+
+/* ── Select ──────────────────────────────────────────────────────────────── */
+
+Select {
+    margin-bottom: 1;
+    width: auto;
+    max-width: 60;
+}
+
+/* Namespace select sits in a row with a button — let it grow to fill */
+#ns-select {
     width: 1fr;
-}
-
-/* String check lists */
-#filter-scroll, #hl-scroll, #mon-scroll {
-    height: 5;
-    border: tall $panel;
-    margin-bottom: 1;
-}
-
-/* String inputs */
-#filter-input, #hl-input, #mon-input {
+    max-width: 60;
     margin-bottom: 0;
 }
 
-/* Dump options */
-#dump-opts {
-    border: tall $panel;
+Select > SelectCurrent {
+    background: $panel;
+    border: tall $primary-lighten-2;
+}
+
+Select:focus > SelectCurrent {
+    border: tall $accent;
+}
+
+/* ── Namespace ───────────────────────────────────────────────────────────── */
+
+#ns-select {
+    margin-bottom: 0;
+}
+
+#ns-input {
+    width: 1fr;
+    max-width: 60;
+    margin-bottom: 0;
+}
+
+
+/* ── Saved config select ─────────────────────────────────────────────────── */
+
+#cfg-select {
+    width: 1fr;
+}
+
+/* ── Deployment list ─────────────────────────────────────────────────────── */
+
+.btn-small {
+    min-width: 12;
+}
+
+#dep-scroll {
+    height: 7;
+    width: 64;
+    background: $panel;
+    border: tall $primary-lighten-2;
+    margin-bottom: 0;
+    scrollbar-size-vertical: 2;
+    scrollbar-color: $accent;
+    scrollbar-color-hover: $accent-lighten-1;
+    scrollbar-background: $panel-darken-1;
+}
+
+#dep-checks {
+    height: auto;
+}
+
+/* ── Checkboxes ──────────────────────────────────────────────────────────── */
+
+Checkbox {
+    height: auto;
+    margin: 0;
     padding: 0 1;
+    background: transparent;
+    border: none;
+}
+
+Checkbox > .toggle--button {
+    color: $panel;
+    background: $panel-darken-1;
+}
+
+Checkbox.-on > .toggle--button {
+    color: $text;
+    background: $success;
+    text-style: bold;
+}
+
+Checkbox:focus {
+    background: $panel-lighten-1;
+}
+
+Checkbox:hover {
+    background: $panel-lighten-1;
+}
+
+/* ── RadioSet ────────────────────────────────────────────────────────────── */
+
+RadioSet {
+    background: $panel;
+    border: tall $primary-lighten-2;
+    padding: 0 1;
+    height: auto;
+    width: 48;
+    margin-bottom: 1;
+}
+
+RadioButton {
+    background: transparent;
+}
+
+/* ── Dump options ────────────────────────────────────────────────────────── */
+
+#dump-opts {
+    padding: 0 0 0 2;
+    margin-top: 0;
     margin-bottom: 1;
     height: auto;
 }
 
-/* Health options */
-#health-opts {
-    padding: 0 1;
+#dump-tail, #dump-since {
+    width: 24;
+}
+
+/* ── Stream options ───────────────────────────────────────────────────────── */
+
+#stream-opts {
+    padding: 0 0 0 2;
+    margin-top: 0;
+    margin-bottom: 1;
     height: auto;
+}
+
+#stream-since {
+    width: 40;
+}
+
+/* ── Patterns edit row ───────────────────────────────────────────────────── */
+
+#patterns-edit-row {
+    align: left middle;
+    height: auto;
+    margin-bottom: 0;
+}
+
+#patterns-file-hint {
+    width: 1fr;
+    margin-bottom: 0;
+    padding-left: 1;
+    color: $text-muted;
+}
+
+/* ── String check lists ──────────────────────────────────────────────────── */
+
+#filter-scroll, #hl-scroll, #mon-scroll {
+    height: 7;
+    width: 64;
+    background: $panel;
+    border: tall $primary-lighten-2;
+    margin-bottom: 0;
+    scrollbar-size-vertical: 2;
+    scrollbar-color: $accent;
+    scrollbar-color-hover: $accent-lighten-1;
+    scrollbar-background: $panel-darken-1;
+}
+
+#filter-checks, #hl-checks, #mon-checks {
+    height: auto;
+}
+
+/* Dim label above saved list to distinguish from the "Add new" input below */
+.saved-label {
+    color: $text-muted;
+    padding-left: 1;
+}
+
+/* Accent the "Add new" label so it reads as a distinct action area */
+.new-label {
+    color: $accent;
+    padding-left: 1;
+    margin-top: 1;
+}
+
+.option-row {
+    height: auto;
+    margin-top: 0;
+    margin-bottom: 1;
+}
+
+.option-row Checkbox {
+    width: 1fr;
+}
+
+/* ── Health options ──────────────────────────────────────────────────────── */
+
+#health-opts {
+    padding: 0 0 0 2;
+    height: auto;
+    margin-top: 0;
+    margin-left: 0;
+}
+
+#health-interval {
+    width: 16;
 }
 
 #health-section, #monitor-section {
     height: auto;
 }
 
-/* Save name */
+/* ── Options tab ─────────────────────────────────────────────────────────── */
+
 #save-name {
-    margin-bottom: 1;
+    margin-bottom: 0;
 }
 
-/* Launch / Cancel buttons */
-#launch {
+.nav-row {
     margin-top: 1;
-    width: 3fr;
-}
-
-#cancel {
-    margin-top: 1;
-    width: 1fr;
-}
-
-Checkbox {
-    margin: 0 0 0 0;
     height: auto;
 }
 
-Input {
-    margin-bottom: 1;
+.btn-cancel {
+    width: 1fr;
+}
+
+.btn-back {
+    width: 1fr;
+}
+
+.btn-next {
+    width: 3fr;
 }

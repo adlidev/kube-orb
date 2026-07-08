@@ -56,7 +56,7 @@ def run_job():
     total_items = 0
     for i, step in enumerate(steps, 1):
         # Occasional transient error requiring a retry
-        if random.random() < 0.06:
+        if random.random() < 0.02:
             log("WARN", "transient error - retrying step",
                 job_id=job_id, step=step, attempt=1,
                 error=random.choice(["network timeout", "lock contention", "rate limited"]))
@@ -72,11 +72,11 @@ def run_job():
 
     # Job outcome
     r = random.random()
-    if r < 0.87:
+    if r < 0.94:
         log("INFO", "job completed",
             job_id=job_id, job_type=job_type,
             total_items=total_items, queue=queue)
-    elif r < 0.95:
+    elif r < 0.98:
         log("WARN", "job completed with warnings",
             job_id=job_id, job_type=job_type,
             warnings=random.randint(1, 10),

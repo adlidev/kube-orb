@@ -24,5 +24,8 @@ htmlcov/
 *.swp
 .DS_Store
 
+# Claude Code — local/personal settings, not meant to be shared
+.claude/settings.local.json
+
 # Logs saved by the tool
 *.log

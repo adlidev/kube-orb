@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cache
+  namespace: logviewer-dev
+  labels:
+    app: cache
+    tier: data
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cache
+  template:
+    metadata:
+      labels:
+        app: cache
+        tier: data
+    spec:
+      terminationGracePeriodSeconds: 5
+      containers:
+      - name: cache
+        image: logviewer-dev/cache:latest
+        imagePullPolicy: Never
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "32Mi"
+          limits:
+            cpu: "200m"
+            memory: "64Mi"

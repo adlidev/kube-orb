@@ -1,5 +1,5 @@
 """
-Kube-illume setup wizard — single-page form.
+kube-orb setup wizard — single-page form.
 Returns a SessionConfig on completion or None if the user cancels.
 """
 from __future__ import annotations
@@ -7,8 +7,11 @@ from __future__ import annotations
 from textual.app import App
 from textual.binding import Binding
 
+from .. import _scrollbar
 from ..models import SessionConfig
 from .screens import SinglePageWizard
+
+_scrollbar.install()
 
 
 class WizardApp(App[SessionConfig | None]):

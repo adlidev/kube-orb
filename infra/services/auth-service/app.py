@@ -36,7 +36,7 @@ def logfmt(level: str, msg: str, **kwargs):
 
 def simulate_login():
     user_id = random.choice(KNOWN_USERS)
-    is_attack = random.random() < 0.05
+    is_attack = random.random() < 0.02
     client_ip = random.choice(ATTACK_IPS if is_attack else CLEAN_IPS)
     request_id = f"req-{uuid.uuid4().hex[:12]}"
 
@@ -47,7 +47,7 @@ def simulate_login():
                block_duration_s=300)
         return
 
-    success = random.random() < 0.88
+    success = random.random() < 0.95
     latency_ms = max(5.0, random.gauss(35, 10))
 
     if success:
@@ -70,16 +70,16 @@ def simulate_token_validation():
     latency_ms = max(0.5, random.gauss(8, 3))
 
     r = random.random()
-    if r < 0.88:
+    if r < 0.94:
         logfmt("DEBUG", "token validated",
                request_id=request_id, user_id=user_id, token_id=token_id,
                latency_ms=round(latency_ms, 1),
                scope="read:users write:users")
-    elif r < 0.93:
+    elif r < 0.97:
         logfmt("WARN", "token expired",
                request_id=request_id, user_id=user_id, token_id=token_id,
                expired_at="2024-01-15T09:00:00Z", action="rejected")
-    elif r < 0.97:
+    elif r < 0.99:
         logfmt("WARN", "token signature invalid",
                request_id=request_id, token_id=token_id, action="rejected")
     else:

@@ -50,7 +50,7 @@ def simulate_email():
     latency_ms = max(50.0, random.gauss(450, 120))
 
     r = random.random()
-    if r < 0.80:
+    if r < 0.88:
         log("INFO", "email delivered",
             request_id=request_id,
             notification_id=notification_id,
@@ -59,7 +59,7 @@ def simulate_email():
             subject=subject,
             latency_ms=round(latency_ms, 1),
             provider_message_id=uuid.uuid4().hex)
-    elif r < 0.88:
+    elif r < 0.93:
         log("WARN", "email bounced",
             request_id=request_id,
             notification_id=notification_id,
@@ -70,7 +70,7 @@ def simulate_email():
                 "mailbox_full", "invalid_address",
                 "domain_not_found", "spam_block",
             ]))
-    elif r < 0.95:
+    elif r < 0.97:
         attempt = random.randint(1, 3)
         log("WARN", "email deferred - will retry",
             request_id=request_id,
@@ -105,7 +105,7 @@ def simulate_webhook():
     latency_ms = max(10.0, random.gauss(180, 60))
 
     r = random.random()
-    if r < 0.75:
+    if r < 0.85:
         log("INFO", "webhook delivered",
             request_id=request_id,
             notification_id=notification_id,
@@ -113,7 +113,7 @@ def simulate_webhook():
             endpoint=endpoint,
             status_code=200,
             latency_ms=round(latency_ms, 1))
-    elif r < 0.85:
+    elif r < 0.93:
         status_code = random.choice([404, 422, 500, 502, 503])
         log("WARN", "webhook delivery failed - will retry",
             request_id=request_id,
@@ -134,11 +134,11 @@ def simulate_webhook():
 
 
 def simulate_queue_stats():
-    depth = random.randint(0, 500)
-    if depth > 300:
+    depth = random.randint(0, 200)
+    if depth > 150:
         processing_rate = random.randint(10, 50)
         log("WARN", "notification queue depth elevated",
-            queue={"depth": depth, "threshold": 300,
+            queue={"depth": depth, "threshold": 150,
                    "processing_rate": processing_rate,
                    "estimated_lag_s": round(depth / processing_rate, 1)})
     else:

@@ -39,7 +39,7 @@ def simulate_db_query():
             table=table, op=op, latency_ms=round(latency, 2), source="redis")
         return
 
-    latency = max(1.0, random.gauss(12, 5)) if r < 0.92 else max(150.0, random.gauss(280, 80))
+    latency = max(1.0, random.gauss(12, 5)) if r < 0.97 else max(150.0, random.gauss(280, 80))
 
     if latency > 200:
         log("WARN", "slow query detected",
@@ -91,7 +91,7 @@ def simulate_crud():
 def simulate_pool_stats():
     pool_size = 20
     active = random.randint(1, pool_size)
-    if active > 16:
+    if active > 18:
         log("WARN", "connection pool near capacity",
             active=active, pool_size=pool_size, waiting=random.randint(1, 5))
     else:
@@ -119,7 +119,7 @@ def main():
             simulate_crud()
 
         # Occasional DB error burst
-        if random.random() < 0.02:
+        if random.random() < 0.005:
             log("ERROR", "database connection failed",
                 host="postgres:5432", error="connection refused",
                 attempt=random.randint(1, 3),
