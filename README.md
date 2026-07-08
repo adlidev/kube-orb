@@ -1,10 +1,10 @@
 # kube-orb
 
 Watching logs across a Kubernetes cluster usually means juggling multiple
-`kubectl logs` windows and grepping after the fact. kube-orb streams
-`kubectl logs -f` from every pod in your selected deployments into one merged,
-colorized view — and lets you filter, highlight, and search *while it's
-streaming*.
+`kubectl logs` windows and grepping after the fact, or writing complex regex 
+just to add a couple of filters. kube-orb streams `kubectl logs -f` from every 
+pod in your selected deployments into one merged, colorized view — and lets you 
+filter, highlight, and search *while it's streaming*.
 
 Built with [Textual](https://textual.textualize.io/), kube-orb is a full
 terminal UI: an interactive setup wizard walks you through picking a namespace,
