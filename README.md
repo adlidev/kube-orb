@@ -96,6 +96,4 @@ notes.
 
 ## License
 
-[PolyForm Noncommercial License 1.0.0](LICENSE) — free for any noncommercial
-use (personal projects, research, nonprofits, education, etc.). Commercial
-use requires a separate agreement with the licensor.
+[MIT License](LICENSE)
