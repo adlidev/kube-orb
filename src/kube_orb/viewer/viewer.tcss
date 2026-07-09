@@ -1,5 +1,13 @@
 /* Viewer layout */
 
+Checkbox {
+    height: auto;
+    margin: 0;
+    padding: 0 1;
+    background: transparent;
+    border: none;
+}
+
 Checkbox > .toggle--button {
     color: $panel;
     background: $panel-darken-1;

@@ -8,16 +8,20 @@ Features:
   - Pause triggered by: scroll-up, clicking a line, or line-select in other panels
   - PAUSED indicator in header showing buffered line count
   - Jump-to-line from search/monitor panels
+  - Optional readable reformatting of detected JSON lines, with a detail
+    modal (Enter, after clicking a line) showing the full pretty-printed JSON
 """
 from __future__ import annotations
 
 import re
 
+from rich.style import Style
 from rich.text import Text
-from textual.message import Message
+from textual.binding import Binding
 from textual.widgets import RichLog, Static
 from textual.containers import Vertical
 
+from ...jsonlog import LEVEL_STYLES, ParsedJsonLine, parse_json_log_line
 from ...models import LogLine
 
 
@@ -55,6 +59,35 @@ def _append_with_highlights(
         text.append(content[cursor:], style=base_style)
 
 
+def _formatted_json_content(
+    parsed: ParsedJsonLine,
+    force_style: str | None,
+    highlight_style: str | None,
+) -> Text:
+    """
+    Build the readable one-line rendering of a parsed JSON line:
+    `HH:MM:SS LEVEL  message  key=val key=val`.
+
+    force_style: color-full-line mode passes the pod color here so it wins
+    throughout instead of semantic level coloring.
+    highlight_style: set when the line matched a highlight pattern — spans
+    computed against the raw JSON text don't line up with this reformatted
+    text, so a highlight match emphasizes the whole message instead of a
+    precise span.
+    """
+    t = Text()
+    dim_style = force_style or "dim"
+    if parsed.timestamp:
+        t.append(parsed.timestamp + "  ", style=dim_style)
+    if parsed.level:
+        level_style = force_style or LEVEL_STYLES.get(parsed.level.upper(), "bold")
+        t.append(f"{parsed.level.upper():<5} ", style=level_style)
+    t.append(parsed.message, style=highlight_style or force_style or "")
+    if parsed.extras:
+        t.append("  " + parsed.extras_text, style=dim_style)
+    return t
+
+
 class MainStreamPanel(Vertical):
     """Collapsible container wrapping the log display."""
 
@@ -64,12 +97,21 @@ class MainStreamPanel(Vertical):
         self._paused = False
         self._pending_count = 0
         self._color_full_line = False
+        self._json_format = False
+        self._json_lines: dict[int, ParsedJsonLine] = {}
+        self._next_line_idx = 0
 
     def set_color_mode(self, full_line: bool) -> None:
         self._color_full_line = full_line
 
     def set_wrap(self, wrap: bool) -> None:
         self.query_one(_LogDisplay).wrap = wrap
+
+    def set_json_format(self, enabled: bool) -> None:
+        self._json_format = enabled
+
+    def get_parsed_json(self, idx: int) -> ParsedJsonLine | None:
+        return self._json_lines.get(idx)
 
     def compose(self):
         yield _StreamHeader(id="stream-header")
@@ -88,28 +130,52 @@ class MainStreamPanel(Vertical):
         prefix = f"[{line.pod_name}] "
         content = line.content
 
+        # Detection always runs (cheap early-exit for non-JSON lines) so the
+        # Enter-for-detail feature works even when display formatting is off.
+        parsed = parse_json_log_line(content)
+        use_formatted = parsed is not None and self._json_format
+
         if is_target:
             text.append("▶ ", style="bold #ff8800")
             text.append(prefix, style=f"bold {color}")
-            text.append(content, style="bold white on #2a2a00")
+            if use_formatted:
+                text.append_text(_formatted_json_content(
+                    parsed, force_style="bold white on #2a2a00", highlight_style=None))
+            else:
+                text.append(content, style="bold white on #2a2a00")
         elif self._color_full_line:
             text.append(prefix, style=f"bold {color}")
-            if highlight_patterns:
+            if use_formatted:
+                hl = f"bold {color} on #333300" if highlight_patterns else None
+                text.append_text(_formatted_json_content(parsed, force_style=color, highlight_style=hl))
+            elif highlight_patterns:
                 _append_with_highlights(text, content, highlight_patterns,
                                         base_style=color, hl_style=f"bold {color} on #333300")
             else:
                 text.append(content, style=color)
         else:
             text.append(prefix, style=color)
-            if highlight_patterns:
+            if use_formatted:
+                hl = "bold #ffff00" if highlight_patterns else None
+                text.append_text(_formatted_json_content(parsed, force_style=None, highlight_style=hl))
+            elif highlight_patterns:
                 _append_with_highlights(text, content, highlight_patterns,
                                         base_style="", hl_style="bold #ffff00")
             else:
                 text.append(content)
+
+        if parsed is not None:
+            idx = self._next_line_idx
+            self._next_line_idx += 1
+            self._json_lines[idx] = parsed
+            text.stylize(Style(meta={"line_idx": idx}), 0, len(text))
+
         log.write(text)
 
     def clear(self) -> None:
         self.query_one(_LogDisplay).clear()
+        self._json_lines.clear()
+        self._next_line_idx = 0
 
     def set_paused(self, paused: bool, pending: int = 0) -> None:
         self._paused = paused
@@ -178,7 +244,20 @@ class _StreamHeader(Static):
 
 
 class _LogDisplay(RichLog):
-    """The actual scrollable log widget. Pauses on scroll-up, click, or drag."""
+    """The actual scrollable log widget. Pauses on scroll-up, click, or drag.
+
+    Clicking a line also selects it (tagged via a "line_idx" style meta —
+    see MainStreamPanel.add_line) so Enter can open its JSON detail view,
+    if it was a detected JSON line.
+    """
+
+    BINDINGS = [
+        Binding("enter", "show_json_detail", "JSON detail", show=True),
+    ]
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.selected_line_idx: int | None = None
 
     def on_scroll_up(self) -> None:
         # ScrollUp message = clicking the scrollbar track above the thumb.
@@ -186,10 +265,26 @@ class _LogDisplay(RichLog):
         if hasattr(app, "set_paused"):
             app.set_paused(True)  # type: ignore[union-attr]
 
-    def on_click(self) -> None:
+    def on_click(self, event) -> None:
+        style = self.get_style_at(event.x, event.y)
+        self.selected_line_idx = style.meta.get("line_idx")
+        self.refresh_bindings()  # footer's "JSON detail" visibility depends on the selection
         app = self.app
         if hasattr(app, "set_paused"):
             app.set_paused(True)  # type: ignore[union-attr]
+
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        if action == "show_json_detail":
+            # Hide the hotkey from the footer entirely unless the currently
+            # selected line is actually a detected JSON line — otherwise
+            # it's advertised even when pressing it would do nothing.
+            return self.selected_line_idx is not None
+        return super().check_action(action, parameters)
+
+    def action_show_json_detail(self) -> None:
+        app = self.app
+        if hasattr(app, "show_json_detail"):
+            app.show_json_detail(self.selected_line_idx)  # type: ignore[union-attr]
 
     def _on_scroll_to(self, message) -> None:
         # Dragging the scrollbar thumb posts ScrollTo but does NOT trigger

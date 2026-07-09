@@ -41,6 +41,7 @@ class SearchPanel(Vertical):
         self._collapsed = False
         self._results: list[LogLine] = []
         self._color_map: dict[str, str] = {}
+        self._color_full_line = False
         self._pattern: re.Pattern | None = None
         self._debounce_task: asyncio.Task | None = None
         self._last_click: dict[int, float] = {}
@@ -52,6 +53,9 @@ class SearchPanel(Vertical):
 
     def set_color_map(self, color_map: dict[str, str]) -> None:
         self._color_map = color_map
+
+    def set_color_mode(self, full_line: bool) -> None:
+        self._color_full_line = full_line
 
     def set_wrap(self, wrap: bool) -> None:
         lv = self.query_one("#search-results", ListView)
@@ -81,8 +85,13 @@ class SearchPanel(Vertical):
         for line in matched[-500:]:
             color = self._color_map.get(line.pod_name, "#ffffff")
             text = Text()
-            text.append(f"[{line.pod_name}] ", style=color)
-            _append_highlighted(text, line.content, pattern)
+            if self._color_full_line:
+                text.append(f"[{line.pod_name}] ", style=f"bold {color}")
+                _append_highlighted(text, line.content, pattern,
+                                    base_style=color, hl_style=f"bold {color} on #333300")
+            else:
+                text.append(f"[{line.pod_name}] ", style=color)
+                _append_highlighted(text, line.content, pattern)
             lv.append(ListItem(Label(text)))
 
         self.query_one(_SearchHeader).update_count(len(matched))
@@ -127,15 +136,21 @@ class SearchPanel(Vertical):
             pass
 
 
-def _append_highlighted(text: Text, content: str, pattern: re.Pattern) -> None:
+def _append_highlighted(
+    text: Text,
+    content: str,
+    pattern: re.Pattern,
+    base_style: str = "",
+    hl_style: str = "bold #ffff00",
+) -> None:
     cursor = 0
     for m in pattern.finditer(content):
         if m.start() > cursor:
-            text.append(content[cursor:m.start()])
-        text.append(content[m.start():m.end()], style="bold #ffff00")
+            text.append(content[cursor:m.start()], style=base_style)
+        text.append(content[m.start():m.end()], style=hl_style)
         cursor = m.end()
     if cursor < len(content):
-        text.append(content[cursor:])
+        text.append(content[cursor:], style=base_style)
 
 
 class _SearchHeader(DragResizeHeader):
@@ -156,5 +171,5 @@ class _SearchHeader(DragResizeHeader):
     def _refresh(self) -> None:
         arrow = "▶" if self._collapsed else "▼"
         suffix = f" ({self._count} results)" if self._count else ""
-        hint = "" if self._collapsed else "  [dim]/ or Esc to close · drag to resize[/dim]"
+        hint = "" if self._collapsed else "  [dim]/ or Esc to close[/dim]"
         self.update(f"{arrow} Search{suffix}{hint}")

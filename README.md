@@ -35,6 +35,10 @@ restarting.
   for scripting or one-off inspection, instead of a live stream.
 - **Saved configs** — save a named combination of namespace, deployments, and
   patterns, and reload it later by name.
+- **JSON log formatting** — auto-detects structured JSON log lines and shows
+  `time  LEVEL  message  key=value ...` instead of a raw JSON blob, with a
+  toggle back to raw and a detail view (Enter on a clicked line) for the full
+  pretty-printed object.
 
 ## Installation
 

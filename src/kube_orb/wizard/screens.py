@@ -124,9 +124,13 @@ class SinglePageWizard(Screen[SessionConfig | None]):
                         yield Label("Since:", classes="field-label")
                         yield Input(placeholder="e.g. 1h, 30m — leave blank for new lines only", id="stream-since")
                         yield Static(
-                            "[dim]Leave blank to only collect new lines from the moment the "
-                            "stream starts (kubectl --since 0s). Set a duration to also pull in "
-                            "recent history when it starts.[/dim]",
+                            "[dim]Leave blank (or enter 0) to only collect new lines from the "
+                            "moment the stream starts. Set a duration to also pull in recent "
+                            "history when it starts.[/dim]\n"
+                            "[dim]Note: with a duration set, nothing is displayed until every "
+                            "pod's backlog is fetched and sorted into order — a long duration "
+                            "or high-volume pods can mean a delay of several seconds before the "
+                            "stream first appears.[/dim]",
                             classes="field-hint",
                             markup=True,
                         )
@@ -206,6 +210,11 @@ class SinglePageWizard(Screen[SessionConfig | None]):
                         "Line wrap  (default: on)",
                         id="line-wrap",
                         value=True,
+                    )
+                    yield Checkbox(
+                        "Format JSON logs  (extract level/message/time; raw otherwise)",
+                        id="json-format",
+                        value=False,
                     )
 
                     yield Rule()
@@ -408,6 +417,7 @@ class SinglePageWizard(Screen[SessionConfig | None]):
         self.query_one("#health-interval", Input).value   = str(cfg.health.interval_minutes)
         self.query_one("#color-full-line", Checkbox).value = cfg.color_full_line
         self.query_one("#line-wrap",       Checkbox).value = cfg.line_wrap
+        self.query_one("#json-format",     Checkbox).value = cfg.json_format
         self.query_one("#filter-icase",   Checkbox).value = cfg.filters_ignore_case
         self.query_one("#hl-icase",       Checkbox).value = cfg.highlights_ignore_case
         self.query_one("#mon-icase",      Checkbox).value = cfg.monitors_ignore_case
@@ -587,6 +597,7 @@ class SinglePageWizard(Screen[SessionConfig | None]):
 
         color_full_line = self.query_one("#color-full-line", Checkbox).value
         line_wrap       = self.query_one("#line-wrap",       Checkbox).value
+        json_format     = self.query_one("#json-format",     Checkbox).value
         save_name = self.query_one("#save-name", Input).value.strip() or None
 
         config = SessionConfig(
@@ -604,6 +615,7 @@ class SinglePageWizard(Screen[SessionConfig | None]):
             health=health,
             color_full_line=color_full_line,
             line_wrap=line_wrap,
+            json_format=json_format,
             name=save_name,
         )
 

@@ -56,6 +56,14 @@ class LogLine:
     pod_name: str
     content: str             # raw log text
     received_at: datetime = field(default_factory=datetime.now)
+    # The real per-line timestamp Kubernetes attaches (from kubectl
+    # --timestamps=true), parsed and stripped back out of `content`. None
+    # when unavailable (dump mode doesn't request it) or unparseable.
+    # received_at is "when kube-orb read this"; log_timestamp is "when the
+    # container actually emitted it" — used to interleave a backfill burst
+    # (see ViewerApp._handle_backfill_line) since arrival order across
+    # concurrent per-pod streams doesn't reflect true chronological order.
+    log_timestamp: datetime | None = None
 
     @property
     def display(self) -> str:
@@ -97,9 +105,11 @@ class SessionConfig:
 
     tail: int | None = None      # last N lines (dump mode only)
     # kubectl --since value, e.g. "1h", "30m". Used by both modes: bounds how
-    # far back dump mode fetches (None = full history). In stream mode, None
-    # is passed to kubectl as "--since 0s" (see kubectl.stream_logs) so a
-    # live session only collects new lines instead of replaying history.
+    # far back dump mode fetches (None = full history). In stream mode, a
+    # None/zero value is normalized to "1s" (see kubectl._normalize_since)
+    # so a live session only collects new lines instead of replaying
+    # history -- kubectl treats an all-zero --since as "no limit", not
+    # "since now".
     since: str | None = None
 
     # Active string sets for this session
@@ -117,6 +127,7 @@ class SessionConfig:
     # Display options
     color_full_line: bool = False  # True = color entire line; False = color pod name prefix only
     line_wrap: bool = True
+    json_format: bool = False  # True = reformat detected JSON lines (level/message/time); False = raw
 
     # Config name — set when user chooses to save
     name: str | None = None
