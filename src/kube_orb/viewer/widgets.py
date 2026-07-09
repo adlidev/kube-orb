@@ -6,6 +6,7 @@ Shared viewer widgets:
   - SaveDialog       — filename prompt for Ctrl+S
   - PodSelectorModal — add/remove deployments from the live stream
   - PaneSizeModal    — set pane heights by percentage (L keybind)
+  - JsonDetailModal  — full pretty-printed JSON for a clicked log line
 """
 from __future__ import annotations
 
@@ -495,4 +496,61 @@ class PaneSizeModal(ModalScreen[dict[str, int] | None]):
         self._apply()
 
     def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
+# ─── JSON detail modal (Enter, after clicking a JSON line) ───────────────────
+
+class JsonDetailModal(ModalScreen[None]):
+    """Full pretty-printed JSON for a detected JSON log line."""
+
+    DEFAULT_CSS = """
+    JsonDetailModal {
+        align: center middle;
+    }
+    #json-detail-dialog {
+        background: $surface;
+        border: thick $accent;
+        padding: 1 2;
+        width: 80%;
+        height: 80%;
+    }
+    #json-detail-title {
+        text-style: bold;
+        color: $accent;
+        margin-bottom: 1;
+    }
+    #json-detail-scroll {
+        height: 1fr;
+        border: tall $panel;
+    }
+    #json-detail-body {
+        width: auto;
+        padding: 0 1;
+    }
+    #json-detail-hint {
+        color: $text-muted;
+        margin-top: 1;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape", "close", "Close"),
+        Binding("enter",  "close", "Close"),
+    ]
+
+    def __init__(self, pretty_json: str, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._pretty = pretty_json
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="json-detail-dialog"):
+            yield Static("JSON detail", id="json-detail-title")
+            with ScrollableContainer(id="json-detail-scroll"):
+                # markup=False — JSON is full of [ ] { } which Rich/Textual
+                # would otherwise try to parse as markup tags.
+                yield Static(self._pretty, id="json-detail-body", markup=False)
+            yield Static("[dim]Esc or Enter to close[/dim]", id="json-detail-hint", markup=True)
+
+    def action_close(self) -> None:
         self.dismiss(None)

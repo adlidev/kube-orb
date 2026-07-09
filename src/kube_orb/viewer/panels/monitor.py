@@ -44,6 +44,7 @@ class MonitorPanel(Vertical):
         self._collapsed = False
         self._lines: list[LogLine] = []
         self._color_map: dict[str, str] = {}
+        self._color_full_line = False
         self._patterns: list[re.Pattern] = []
 
     def compose(self) -> ComposeResult:
@@ -53,6 +54,9 @@ class MonitorPanel(Vertical):
 
     def set_color_map(self, color_map: dict[str, str]) -> None:
         self._color_map = color_map
+
+    def set_color_mode(self, full_line: bool) -> None:
+        self._color_full_line = full_line
 
     def set_patterns(self, patterns: list[re.Pattern]) -> None:
         self._patterns = patterns
@@ -69,7 +73,7 @@ class MonitorPanel(Vertical):
 
         at_top = scroll.scroll_y <= 1
 
-        text = _build_text(line, color, self._patterns)
+        text = _build_text(line, color, self._patterns, self._color_full_line)
         # Prepend — newest hit at the top. mount(before=0) on Vertical is reliable.
         inner.mount(_MonitorRow(text, line), before=0)
 
@@ -103,7 +107,7 @@ class MonitorPanel(Vertical):
         # newest hit ends up on top (matching add_line's ordering).
         for line in matched[-_MAX_ROWS:]:
             color = self._color_map.get(line.pod_name, "#ffffff")
-            inner.mount(_MonitorRow(_build_text(line, color, self._patterns), line), before=0)
+            inner.mount(_MonitorRow(_build_text(line, color, self._patterns, self._color_full_line), line), before=0)
 
         self.query_one(_MonitorHeader).update_count(len(self._lines))
 
@@ -134,17 +138,32 @@ def _build_text(
     line: LogLine,
     color: str,
     patterns: list[re.Pattern],
+    full_line: bool = False,
 ) -> Text:
     text = Text()
-    text.append(f"[{line.pod_name}] ", style=color)
-    if patterns:
-        _append_highlighted(text, line.content, patterns)
+    if full_line:
+        text.append(f"[{line.pod_name}] ", style=f"bold {color}")
+        if patterns:
+            _append_highlighted(text, line.content, patterns,
+                                base_style=color, hl_style=f"bold {color} on #333300")
+        else:
+            text.append(line.content, style=color)
     else:
-        text.append(line.content)
+        text.append(f"[{line.pod_name}] ", style=color)
+        if patterns:
+            _append_highlighted(text, line.content, patterns)
+        else:
+            text.append(line.content)
     return text
 
 
-def _append_highlighted(text: Text, content: str, patterns: list[re.Pattern]) -> None:
+def _append_highlighted(
+    text: Text,
+    content: str,
+    patterns: list[re.Pattern],
+    base_style: str = "",
+    hl_style: str = "bold #ffff00",
+) -> None:
     spans: list[tuple[int, int]] = []
     for pat in patterns:
         for m in pat.finditer(content):
@@ -160,11 +179,11 @@ def _append_highlighted(text: Text, content: str, patterns: list[re.Pattern]) ->
     cursor = 0
     for start, end in merged:
         if cursor < start:
-            text.append(content[cursor:start])
-        text.append(content[start:end], style="bold #ffff00")
+            text.append(content[cursor:start], style=base_style)
+        text.append(content[start:end], style=hl_style)
         cursor = end
     if cursor < len(content):
-        text.append(content[cursor:])
+        text.append(content[cursor:], style=base_style)
 
 
 class _MonitorHeader(DragResizeHeader):

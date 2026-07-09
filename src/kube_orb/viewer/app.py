@@ -14,13 +14,13 @@ from __future__ import annotations
 
 import asyncio
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical
-from textual.widgets import Footer, Header, Rule
+from textual.widgets import Footer, Header, Input, Rule
 
 from .. import _scrollbar
 from ..colors import assign_colors
@@ -30,7 +30,7 @@ from .panels.health import HealthPanel
 from .panels.main_stream import MainStreamPanel
 from .panels.monitor import MonitorPanel
 from .panels.search import SearchPanel
-from .widgets import PaneSizeModal, PodSelectorModal, SaveDialog, StringEditModal
+from .widgets import JsonDetailModal, PaneSizeModal, PodSelectorModal, SaveDialog, StringEditModal
 
 _scrollbar.install()
 
@@ -46,6 +46,14 @@ class ViewerApp(App):
     MAIN_STREAM_MIN_HEIGHT = 20
     SIDE_PANEL_MIN_HEIGHT = 4
 
+    # Force an early backfill flush past this many buffered lines, rather
+    # than waiting on every pod to catch up (or the watchdog) — bounds the
+    # worst case (e.g. a deliberately long `since` on a very busy pod) to a
+    # sort+dispatch of a few thousand lines instead of an unbounded one that
+    # could noticeably stall the UI. Below the main buffer's own 20,000 cap
+    # since this is meant to catch a burst, not hold a whole session.
+    BACKFILL_BUFFER_CAP = 3000
+
     BINDINGS = [
         Binding("f",       "edit_filters",    "Edit Filters",    show=True,  priority=True),
         Binding("h",       "edit_highlights", "Edit highlights", show=True,  priority=True),
@@ -58,6 +66,7 @@ class ViewerApp(App):
         Binding("w",       "toggle_wrap",     "Wrap",            show=True,  priority=True),
         Binding("p",       "manage_pods",     "Pods",            show=True,  priority=True),
         Binding("l",       "edit_layout",     "Pane sizes",      show=True,  priority=True),
+        Binding("j",       "toggle_json",     "JSON format",     show=True,  priority=True),
     ]
 
     def __init__(self, config: SessionConfig) -> None:
@@ -83,6 +92,17 @@ class ViewerApp(App):
 
         # Deployment → list of pod names currently streaming
         self._deployment_pods: dict[str, list[str]] = {}
+
+        # Backfill interleaving (only active when config.since requests a
+        # look-back window in stream mode) — see _handle_backfill_line().
+        # Concurrent per-pod streams don't arrive in chronological order, so
+        # a backfill burst is held and sorted by real log_timestamp before
+        # display, rather than shown in arrival order and clumped per pod.
+        # None = no backfill in progress (the common case — zero overhead).
+        self._backfill_pending: set[str] | None = None
+        self._backfill_buffer: list[LogLine] = []
+        self._backfill_cutoff: datetime | None = None
+        self._backfill_watchdog = None
 
     # ── Layout ────────────────────────────────────────────────────────────────
 
@@ -150,9 +170,14 @@ class ViewerApp(App):
         panel = self.query_one(MainStreamPanel)
         panel.set_color_mode(self._config.color_full_line)
         panel.set_wrap(self._config.line_wrap)
-        self.query_one(SearchPanel).set_wrap(self._config.line_wrap)
+        panel.set_json_format(self._config.json_format)
+        search_panel = self.query_one(SearchPanel)
+        search_panel.set_wrap(self._config.line_wrap)
+        search_panel.set_color_mode(self._config.color_full_line)
         if self._is_stream:
-            self.query_one(MonitorPanel).set_wrap(self._config.line_wrap)
+            monitor_panel = self.query_one(MonitorPanel)
+            monitor_panel.set_wrap(self._config.line_wrap)
+            monitor_panel.set_color_mode(self._config.color_full_line)
 
         # Give focus to the log display so all key bindings are reachable
         self.query_one("#stream-log").focus()
@@ -198,8 +223,25 @@ class ViewerApp(App):
 
     def _start_streaming(self, deps, pods) -> None:
         """Start streaming workers for a set of deployments and their pods."""
+        from .. import kubectl as k
+
         for dep in deps:
             self._deployment_pods[dep.name] = []
+
+        if k.wants_backfill(self._config.since):
+            # A look-back window means every pod's stream opens with a
+            # backfill burst. Hold lines from all of them until every pod
+            # has either caught up to live or the watchdog fires, then
+            # deliver the whole burst sorted by real timestamp — otherwise
+            # they show up in arrival order, clumped one pod at a time.
+            # (wants_backfill, not a truthiness check: a user-entered "0"
+            # is non-empty but kubectl treats it as no window at all — see
+            # kubectl._normalize_since — so it shouldn't trigger a 5-second
+            # wait for a backfill that will never arrive.)
+            self._backfill_pending = {p.name for p in pods}
+            self._backfill_cutoff = datetime.now(timezone.utc)
+            self._backfill_watchdog = self.set_timer(5.0, self._backfill_watchdog_fire)
+
         for pod in pods:
             self._deployment_pods.setdefault(pod.deployment, []).append(pod.name)
             self.run_worker(
@@ -322,6 +364,10 @@ class ViewerApp(App):
         if self._filter_patterns and matches(line.content, self._filter_patterns):
             return
 
+        if self._backfill_pending is not None:
+            self._handle_backfill_line(line)
+            return
+
         self._buffer.append(line)
         if len(self._buffer) > self._buffer_cap:
             del self._buffer[: self._buffer_cap // 10]  # trim 10% at a time
@@ -349,6 +395,53 @@ class ViewerApp(App):
                     self.query_one(MonitorPanel).add_line(line, color)
                 except Exception:
                     pass
+
+    # ── Backfill interleaving ────────────────────────────────────────────────
+
+    def _handle_backfill_line(self, line: LogLine) -> None:
+        """
+        Route one line while a backfill burst is in progress (see
+        _start_streaming). Lines from every pod are held until all pods have
+        either caught up to live, the watchdog fires, or BACKFILL_BUFFER_CAP
+        is hit, then flushed sorted by real timestamp — otherwise each pod's
+        backlog displays as one arrival-order clump instead of properly
+        interleaved history.
+        """
+        is_backfill = (
+            line.log_timestamp is not None
+            and self._backfill_cutoff is not None
+            and line.log_timestamp < self._backfill_cutoff
+        )
+        if not is_backfill:
+            # This pod has caught up to live. Still hold the line (rather
+            # than display it immediately) if other pods are still behind,
+            # so a fast pod's live lines don't jump ahead of a slow pod's
+            # still-pending backfill.
+            self._backfill_pending.discard(line.pod_name)
+
+        self._backfill_buffer.append(line)
+        if not self._backfill_pending or len(self._backfill_buffer) >= self.BACKFILL_BUFFER_CAP:
+            self._flush_backfill()
+
+    def _backfill_watchdog_fire(self) -> None:
+        self._backfill_watchdog = None
+        if self._backfill_pending:
+            self._flush_backfill()
+
+    def _flush_backfill(self) -> None:
+        lines, self._backfill_buffer = self._backfill_buffer, []
+        self._backfill_pending = None
+        self._backfill_cutoff = None
+        if self._backfill_watchdog is not None:
+            self._backfill_watchdog.stop()
+            self._backfill_watchdog = None
+        # Fallback for the rare line whose timestamp didn't parse — a single
+        # shared "now" (not received_at, which is naive local time and would
+        # misorder against real UTC timestamps by the local tz offset).
+        fallback = datetime.now(timezone.utc)
+        lines.sort(key=lambda l: l.log_timestamp or fallback)
+        for line in lines:
+            self._ingest(line)  # _backfill_pending is now None, so this goes through normally
 
     # ── Pause / resume ─────────────────────────────────────────────────────────
 
@@ -542,10 +635,22 @@ class ViewerApp(App):
 
     def action_toggle_color(self) -> None:
         self._config.color_full_line = not self._config.color_full_line
-        panel = self.query_one(MainStreamPanel)
-        panel.set_color_mode(self._config.color_full_line)
+        full_line = self._config.color_full_line
+
+        self.query_one(MainStreamPanel).set_color_mode(full_line)
         self._rerender_main_stream()
-        mode = "full line" if self._config.color_full_line else "name only"
+
+        search_panel = self.query_one(SearchPanel)
+        search_panel.set_color_mode(full_line)
+        query = search_panel.query_one("#search-input", Input).value
+        search_panel.search(self._buffer, query)
+
+        if self._is_stream:
+            monitor_panel = self.query_one(MonitorPanel)
+            monitor_panel.set_color_mode(full_line)
+            monitor_panel.rebuild(self._buffer)
+
+        mode = "full line" if full_line else "name only"
         self.notify(f"Color mode: {mode}")
 
     def action_toggle_wrap(self) -> None:
@@ -558,6 +663,21 @@ class ViewerApp(App):
         # RichLog only applies wrap to new writes — re-render buffer so existing lines reflow
         self._rerender_main_stream()
         self.notify(f"Line wrap: {'on' if wrap else 'off'}")
+
+    def action_toggle_json(self) -> None:
+        self._config.json_format = not self._config.json_format
+        panel = self.query_one(MainStreamPanel)
+        panel.set_json_format(self._config.json_format)
+        self._rerender_main_stream()
+        self.notify(f"JSON format: {'on' if self._config.json_format else 'raw'}")
+
+    def show_json_detail(self, idx: int | None) -> None:
+        if idx is None:
+            return
+        parsed = self.query_one(MainStreamPanel).get_parsed_json(idx)
+        if parsed is None:
+            return
+        self.push_screen(JsonDetailModal(parsed.pretty))
 
     def action_toggle_search(self) -> None:
         panel = self.query_one(SearchPanel)

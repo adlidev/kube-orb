@@ -201,6 +201,7 @@ def load_session_config(namespace: str, name: str) -> SessionConfig | None:
         monitors_ignore_case=data.get("monitors_ignore_case", False),
         line_wrap=data.get("line_wrap", True),
         color_full_line=data.get("color_full_line", False),
+        json_format=data.get("json_format", False),
         health=HealthConfig(
             enabled=health_data.get("enabled", False),
             interval_minutes=health_data.get("interval_minutes", 5),
@@ -232,6 +233,7 @@ def save_session_config(config: SessionConfig) -> None:
         "monitors_ignore_case": config.monitors_ignore_case,
         "line_wrap": config.line_wrap,
         "color_full_line": config.color_full_line,
+        "json_format": config.json_format,
         "health": {
             "enabled": config.health.enabled,
             "interval_minutes": config.health.interval_minutes,

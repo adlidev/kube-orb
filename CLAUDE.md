@@ -77,12 +77,13 @@ CLI args / Wizard
 | Module | Purpose |
 |---|---|
 | `models.py` | All shared dataclasses: `SessionConfig`, `LogLine`, `Deployment`, `Pod`, `PodStatus`, `HealthConfig` |
-| `kubectl.py` | All Kubernetes interaction via subprocess `kubectl`. No Python k8s client. `stream_logs()` is an async generator; `dump_logs()` is one-shot. `stream_logs()` defaults `since` to `"0s"` when unset, so a live session only collects new lines instead of replaying the pod's full buffered history; `dump_logs()` has no such default (unset `since` = full history). |
+| `kubectl.py` | All Kubernetes interaction via subprocess `kubectl`. No Python k8s client. `stream_logs()` is an async generator; `dump_logs()` is one-shot. `stream_logs()` normalizes `since` to `"1s"` when unset or all-zero (`_normalize_since()`), so a live session only collects new lines instead of replaying the pod's full buffered history — kubectl treats an all-zero `--since` identically to omitting it entirely ("no limit"), so `"0s"` would silently dump full history; `dump_logs()` has no such default (unset `since` = full history). |
 | `config.py` | Persists session configs to `~/.config/kube-orb/namespaces/<ns>/<name>.yaml` and global saved strings to `~/.config/kube-orb/strings.yaml`. Also owns pattern compilation: plain strings are `re.escape`d; `/regex/`-wrapped strings compile as real regex. |
 | `colors.py` | Assigns a distinct ANSI/CSS color to each pod name. |
+| `jsonlog.py` | Detects single-JSON-object log lines and extracts level/message/timestamp (checking a few conventional key names) for the optional readable-formatting toggle. Detection runs regardless of the toggle, since the Enter-for-detail view needs it too. |
 | `viewer/app.py` | `ViewerApp` — the main Textual `App`. Owns the log buffer, pause state, pattern state, and pod/deployment lifecycle. |
 | `viewer/panels/` | Four panels: `MainStreamPanel` (primary log display), `SearchPanel` (live search), `MonitorPanel` (passive pattern accumulation), `HealthPanel` (restart/health alerts). |
-| `viewer/widgets.py` | Shared widgets: `StringEditModal` (F/H/M editing), `SaveDialog`, `PodSelectorModal`. |
+| `viewer/widgets.py` | Shared widgets: `StringEditModal` (F/H/M editing), `SaveDialog`, `PodSelectorModal`, `PaneSizeModal`, `JsonDetailModal`. |
 | `wizard/` | Three-tab Textual wizard (`SinglePageWizard` screen) — Targets → Strings → Options — produces a `SessionConfig`. |
 
 ### Pattern matching

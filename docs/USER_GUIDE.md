@@ -13,6 +13,7 @@ auth/config to set up, and no Python Kubernetes client involved. If
   - [Panels](#panels)
   - [Pausing and resuming](#pausing-and-resuming)
   - [Resizing panes](#resizing-panes)
+  - [JSON log formatting](#json-log-formatting)
 - [Pattern syntax (filters / highlights / monitors)](#pattern-syntax-filters--highlights--monitors)
 - [Saved patterns vs. saved configs](#saved-patterns-vs-saved-configs)
 - [Pod health monitoring](#pod-health-monitoring)
@@ -51,7 +52,8 @@ The wizard is a three-tab form:
    checkbox controls whether anything you type here also gets added to your
    global saved patterns for next time.
 3. **Options** — pod health monitoring, display options (full-line coloring,
-   line wrap), and a name field if you want to save this configuration.
+   line wrap, JSON log formatting), and a name field if you want to save
+   this configuration.
 
 Press **Ctrl+Q** at any point to cancel out of the wizard without launching.
 
@@ -94,7 +96,9 @@ Providing neither `-p`/`--all-pods` nor `-c` launches the wizard automatically.
 | `T` | Toggle color mode (pod-name-only vs. full-line coloring) |
 | `W` | Toggle line wrap |
 | `P` | Add/remove deployments from the live stream |
-| `L` | Set pane sizes by percentage (keyboard-driven alternative to drag-resizing) |
+| `L` | Set pane sizes by percentage |
+| `J` | Toggle JSON log formatting (readable vs. raw) |
+| `Enter` | (After clicking a detected JSON line) show its full pretty-printed JSON |
 | `Ctrl+S` | Save the buffered log to a file |
 | `Ctrl+Q` | Quit |
 
@@ -129,11 +133,44 @@ Opening the filter/highlight/monitor editor (`F`/`H`/`M`) also pauses the
 main view while it's open, and automatically resumes when you close it
 (whether you apply changes or cancel).
 
+Note: dragging the scrollbar thumb depends on your terminal sending mouse
+motion events while the button is held — this works in most standalone
+terminal apps, but VSCode's integrated terminal has been observed not to
+send them, making the thumb undraggable there. Scrolling with the wheel or
+keyboard still works normally either way.
+
 ### Resizing panes
 
 Press `L` to open a modal where you can set an exact percentage for each
 currently-visible, expanded pane. The main stream always keeps a 20-row
 minimum regardless of what you enter.
+
+### JSON log formatting
+
+Most structured loggers emit one JSON object per line, which is hard to
+scan as raw text. kube-orb detects lines that are a single JSON object and
+can reformat them as:
+
+```
+12:34:56  ERROR  request failed  status=500 method=GET path=/api/v1/users
+```
+
+pulling out a timestamp, level, and message from a few conventional key
+names (`level`/`lvl`/`severity`; `message`/`msg`/`text`;
+`timestamp`/`time`/`ts`/`@timestamp`), coloring the level by severity, and
+appending every other field as trailing `key=value` context. Lines that
+aren't JSON are left untouched either way.
+
+- Turn it on by default from the wizard's Options tab ("Format JSON logs"),
+  or toggle it live with `J`.
+- Detection runs regardless of whether formatting is on — click a detected
+  JSON line (formatted or still raw) and press `Enter` to open a modal with
+  the full pretty-printed object, including any fields not shown inline.
+- Because filters/highlights match against the *raw* line, not the
+  reformatted display, they keep working normally either way. A highlight
+  match on a formatted JSON line emphasizes the whole message instead of a
+  precise span, since character offsets from the raw text don't carry over
+  to the reformatted one.
 
 ## Pattern syntax (filters / highlights / monitors)
 
@@ -191,9 +228,22 @@ replacement isn't automatically picked up until you restart the session.
 ## Stream mode vs. dump mode
 
 - **Stream** (default) — `kubectl logs -f` per pod, live and ongoing. By
-  default only *new* lines are collected from the moment the session starts
-  (kube-orb passes `--since 0s` under the hood) — pass `--since` explicitly
-  if you also want some history when it starts.
+  default (or if you enter `0`) only *new* lines are collected from the
+  moment the session starts — pass `--since` explicitly if you also want
+  some history when it starts. (Under the hood kube-orb asks kubectl for
+  `--since 1s` rather than `0s`: kubectl treats an all-zero `--since` as "no
+  limit" and silently dumps a pod's entire buffered history instead.)
+
+  With `--since` set, each pod's history streams in concurrently and isn't
+  guaranteed to arrive in chronological order across pods, so kube-orb holds
+  that initial backlog and sorts it by each line's real timestamp before
+  displaying anything — otherwise you'd see one pod's whole backlog, then
+  the next pod's, instead of properly interleaved history. This means
+  **nothing appears until every pod's backlog has been fetched**, which can
+  take several seconds for a long duration or high-volume pods (capped at 5
+  seconds, or at 3000 buffered lines — after either limit it displays what
+  it has rather than waiting indefinitely). Ongoing live lines after that
+  catch-up aren't affected.
 - **Dump** (`--dump`) — fetches existing logs once per pod (bounded by
   `--tail` and/or `--since`) and exits. No live follow, no monitor panel, no
   health polling. Useful for scripting or a quick one-off look.
