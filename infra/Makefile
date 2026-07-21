@@ -3,7 +3,7 @@ NAMESPACE      := logviewer-dev
 SERVICES       := api-gateway auth-service user-service notification-service worker database cache scheduler
 SCRIPT_DIR     := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
-.PHONY: help setup build load deploy status logs teardown clean
+.PHONY: help setup build load deploy start stop reaper status logs restart teardown clean
 
 help:
 	@echo "k8s-logviewer test infra"
@@ -12,6 +12,9 @@ help:
 	@echo "  make build      Build all service Docker images"
 	@echo "  make load       Import images into k3d cluster"
 	@echo "  make deploy     Apply k8s manifests"
+	@echo "  make start      Start a previously stopped cluster"
+	@echo "  make stop       Stop the cluster (pause without deleting)"
+	@echo "  make reaper     Background auto-stop after TIMEOUT_SECONDS (default 4h)"
 	@echo "  make status     Show pod status"
 	@echo "  make logs       Tail logs from all services (Ctrl-C to stop)"
 	@echo "  make teardown   Delete k3d cluster and all resources"
@@ -53,6 +56,18 @@ else
 	@kubectl logs -n $(NAMESPACE) --all-containers -f --prefix \
 		--selector='app in (api-gateway,auth-service,user-service,notification-service,worker,database,cache,scheduler)'
 endif
+
+start:
+	@echo "→ Starting cluster '$(CLUSTER_NAME)' ..."
+	@k3d cluster start $(CLUSTER_NAME)
+
+stop:
+	@echo "→ Stopping cluster '$(CLUSTER_NAME)' ..."
+	@k3d cluster stop $(CLUSTER_NAME)
+
+reaper:
+	@echo "→ Reaper started in background (PID will print below)"
+	@bash $(SCRIPT_DIR)/reaper.sh &
 
 restart:
 	@kubectl rollout restart deployment -n $(NAMESPACE)
