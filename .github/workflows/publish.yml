@@ -1,0 +1,80 @@
+# ── kube-orb CI / PyPI publish ────────────────────────────────────────────────
+#
+# Two jobs:
+#   test    — runs on every push/PR to main (matrix: Python 3.10–3.12)
+#   publish — runs after a successful test on a published GitHub Release
+#             (or manually via workflow_dispatch for re-runs without a new tag)
+#
+# PyPI publishing uses OIDC Trusted Publishing — no API token required.
+#
+# ⚠️  ONE-TIME SETUP REQUIRED before publishing will work:
+#     Register this workflow as a Trusted Publisher on PyPI:
+#       pypi.org → kube-orb project → Manage → Publishing → Add a new publisher
+#         Owner:             adlidev
+#         Repository:        kube-orb
+#         Workflow filename: publish.yml
+#         Environment name:  (leave blank)
+#     Until that registration exists, the publish job will fail with an
+#     auth/permissions error even though the workflow itself is correct.
+
+name: Test and Publish
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install with dev dependencies
+        run: pip install -e . --group dev
+
+      - name: Run tests
+        run: pytest -q
+
+  publish:
+    name: Publish to PyPI
+    needs: test
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # required for OIDC trusted publishing
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: pip install build twine
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Check distribution
+        run: python -m twine check dist/*
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

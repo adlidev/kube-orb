@@ -2,6 +2,24 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Release process
+
+Releases are built and published automatically by `.github/workflows/publish.yml`.
+
+**To cut a release:**
+1. Bump `version` in `pyproject.toml`
+2. Commit and push to `main`
+3. Create and publish a GitHub Release (tag e.g. `v1.1.0`) — the workflow triggers automatically, runs the test matrix, then builds and publishes to PyPI
+
+**Manual re-run:** if a publish job fails (e.g. transient PyPI error), re-run it via GitHub Actions → workflow_dispatch without cutting a new release.
+
+**⚠️ One-time PyPI setup required** — publishing will fail with an auth error until this workflow is registered as a Trusted Publisher on PyPI:
+- pypi.org → kube-orb project → Manage → Publishing → "Add a new publisher"
+- Owner: `adlidev`
+- Repository: `kube-orb`
+- Workflow filename: `publish.yml`
+- Environment name: *(leave blank)*
+
 ## Commands
 
 ```bash
@@ -83,7 +101,7 @@ CLI args / Wizard
 | `jsonlog.py` | Detects single-JSON-object log lines and extracts level/message/timestamp (checking a few conventional key names) for the optional readable-formatting toggle. Detection runs regardless of the toggle, since the Enter-for-detail view needs it too. |
 | `viewer/app.py` | `ViewerApp` — the main Textual `App`. Owns the log buffer, pause state, pattern state, and pod/deployment lifecycle. |
 | `viewer/panels/` | Four panels: `MainStreamPanel` (primary log display), `SearchPanel` (live search), `MonitorPanel` (passive pattern accumulation), `HealthPanel` (restart/health alerts). |
-| `viewer/widgets.py` | Shared widgets: `StringEditModal` (F/H/M editing), `SaveDialog`, `PodSelectorModal`, `PaneSizeModal`, `JsonDetailModal`. |
+| `viewer/widgets.py` | Shared widgets: `StringEditModal` (F/H/M editing), `SaveDialog`, `PodSelectorModal`, `PaneSizeModal`, `JsonDetailModal`, `MonitorContextModal`. |
 | `wizard/` | Three-tab Textual wizard (`SinglePageWizard` screen) — Targets → Strings → Options — produces a `SessionConfig`. |
 
 ### Pattern matching
