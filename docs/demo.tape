@@ -83,48 +83,93 @@ Tab
 Sleep 200ms
 Tab
 Sleep 200ms
-# Tab past the 'since' duration input
+# Tab past the RadioSet (stream mode already selected — no change needed)
 Tab
 Sleep 200ms
-# Tab should now be on the tab strip — switch to Strings tab
-# NOTE: if still landing on wrong field, add one more Tab before the Right
+# Tab past the 'since' duration input (leave blank = new lines only)
+Tab
+Sleep 200ms
+# Tab past the Cancel button
+Tab
+Sleep 200ms
+# Tab to the 'Next →' button — press Enter to switch to Patterns tab
+Tab
+Sleep 200ms
+Enter
+Sleep 1s
+
+# ContentTabs has focus after tab switch — Tab to first widget in Patterns tab
+# Tab past the 'Edit in text editor' button
 Tab
 Sleep 300ms
-Right
-Sleep 800ms
-
-# Move focus to the filter strings input box
+# Tab past the 'Reload' button
+Tab
+Sleep 300ms
+# Tab to filter input (assumes no saved filter strings; add Tabs here if you have some)
 Tab
 Sleep 400ms
-# Type comma-separated plain strings — no regex needed
+# Type comma-separated filter strings — text stays in field, no Enter needed in wizard
 Type "DEBUG, INFO"
 Sleep 300ms
-# Confirm the filter entry
-Enter
-Sleep 400ms
 
-# Move focus past filter saved-strings section
+# Tab past the filter-save and filter-icase checkboxes
+Tab
+Sleep 200ms
+Tab
+Sleep 200ms
+# Tab to highlight input (assumes no saved highlight strings)
 Tab
 Sleep 300ms
-# Move focus past highlight saved-strings section
+# Tab past hl-save and hl-icase
 Tab
-Sleep 300ms
-# Move focus to the monitor strings input box
+Sleep 200ms
+Tab
+Sleep 200ms
+# Tab to monitor input (assumes no saved monitor strings)
 Tab
 Sleep 300ms
 # Type comma-separated monitor strings
 Type "ERROR, WARN"
 Sleep 300ms
-# Confirm the monitor entry
-Enter
-Sleep 500ms
 
-# Switch from Strings tab to Options tab
-Right
-Sleep 600ms
-# Move focus to the Launch button
+# Tab past mon-save, mon-icase, Cancel, Back to reach 'Next →' button
 Tab
-Sleep 300ms
+Sleep 200ms
+Tab
+Sleep 200ms
+Tab
+Sleep 200ms
+Tab
+Sleep 200ms
+Tab
+Sleep 200ms
+# Press Enter on 'Next →' to switch to Options tab
+Enter
+Sleep 1s
+
+# In Options tab — Tab to the Launch button (past health, display, and save-name widgets)
+# Tab past health-enable checkbox
+Tab
+Sleep 200ms
+# Tab past color-full-line, line-wrap, json-format, collapse-repeats
+Tab
+Sleep 200ms
+Tab
+Sleep 200ms
+Tab
+Sleep 200ms
+Tab
+Sleep 200ms
+# Tab past save-name input
+Tab
+Sleep 200ms
+# Tab past Cancel and Back buttons to reach 'Launch →'
+Tab
+Sleep 200ms
+Tab
+Sleep 200ms
+Tab
+Sleep 200ms
 # Launch the viewer
 Enter
 Sleep 5s
