@@ -216,6 +216,12 @@ class SinglePageWizard(Screen[SessionConfig | None]):
                         id="json-format",
                         value=False,
                     )
+                    yield Checkbox(
+                        "Collapse repeated lines  (consecutive identical lines from the "
+                        "same pod become 'last line repeated N times')",
+                        id="collapse-repeats",
+                        value=False,
+                    )
 
                     yield Rule()
                     yield _section("Save config for reuse")
@@ -237,6 +243,9 @@ class SinglePageWizard(Screen[SessionConfig | None]):
         self.query_one("#health-opts").display = False
         self._load_saved_strings()
         self._populate_namespaces()
+        # Explicitly focus the first form field so the wizard opens ready to use
+        # rather than leaving focus on the TabbedContent tab strip.
+        self.call_after_refresh(lambda: self.set_focus(self.query_one("#cfg-select", Select)))
 
     # ── Namespace helpers ─────────────────────────────────────────────────────
 
@@ -418,6 +427,7 @@ class SinglePageWizard(Screen[SessionConfig | None]):
         self.query_one("#color-full-line", Checkbox).value = cfg.color_full_line
         self.query_one("#line-wrap",       Checkbox).value = cfg.line_wrap
         self.query_one("#json-format",     Checkbox).value = cfg.json_format
+        self.query_one("#collapse-repeats", Checkbox).value = cfg.collapse_repeats
         self.query_one("#filter-icase",   Checkbox).value = cfg.filters_ignore_case
         self.query_one("#hl-icase",       Checkbox).value = cfg.highlights_ignore_case
         self.query_one("#mon-icase",      Checkbox).value = cfg.monitors_ignore_case
@@ -598,6 +608,7 @@ class SinglePageWizard(Screen[SessionConfig | None]):
         color_full_line = self.query_one("#color-full-line", Checkbox).value
         line_wrap       = self.query_one("#line-wrap",       Checkbox).value
         json_format     = self.query_one("#json-format",     Checkbox).value
+        collapse_repeats = self.query_one("#collapse-repeats", Checkbox).value
         save_name = self.query_one("#save-name", Input).value.strip() or None
 
         config = SessionConfig(
@@ -616,6 +627,7 @@ class SinglePageWizard(Screen[SessionConfig | None]):
             color_full_line=color_full_line,
             line_wrap=line_wrap,
             json_format=json_format,
+            collapse_repeats=collapse_repeats,
             name=save_name,
         )
 
