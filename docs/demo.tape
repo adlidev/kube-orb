@@ -98,78 +98,99 @@ Sleep 200ms
 Enter
 Sleep 1s
 
-# ContentTabs has focus after tab switch — Tab to first widget in Patterns tab
-# Tab past the 'Edit in text editor' button
+# ContentTabs has focus after tab switch — Tab into the Patterns tab
+# Tab past 'Edit in text editor' button
 Tab
-Sleep 300ms
-# Tab past the 'Reload' button
+Sleep 200ms
+# Tab past 'Reload' button
 Tab
-Sleep 300ms
-# Tab to filter input (assumes no saved filter strings; add Tabs here if you have some)
+Sleep 200ms
+# Tab past 3 saved filter checkboxes (info, debug, [debug])
 Tab
-Sleep 400ms
-# Type comma-separated filter strings — text stays in field, no Enter needed in wizard
+Sleep 150ms
+Tab
+Sleep 150ms
+Tab
+Sleep 150ms
+# Now on filter-input — type new filter strings (no Enter needed, text stays in field)
 Type "DEBUG, INFO"
 Sleep 300ms
 
-# Tab past the filter-save and filter-icase checkboxes
+# Tab past filter-save, filter-icase checkboxes
 Tab
-Sleep 200ms
+Sleep 150ms
 Tab
-Sleep 200ms
-# Tab to highlight input (assumes no saved highlight strings)
+Sleep 150ms
+# Tab past 4 saved highlight checkboxes (error, exception, warn, timeout)
 Tab
-Sleep 300ms
-# Tab past hl-save and hl-icase
+Sleep 150ms
 Tab
-Sleep 200ms
+Sleep 150ms
 Tab
-Sleep 200ms
-# Tab to monitor input (assumes no saved monitor strings)
+Sleep 150ms
 Tab
-Sleep 300ms
-# Type comma-separated monitor strings
+Sleep 150ms
+# Tab past hl-input (skip highlight input for demo)
+Tab
+Sleep 150ms
+# Tab past hl-save, hl-icase
+Tab
+Sleep 150ms
+Tab
+Sleep 150ms
+# Tab past 6 saved monitor checkboxes (failed, exception, bunghole, auth-service instance, user, error)
+Tab
+Sleep 150ms
+Tab
+Sleep 150ms
+Tab
+Sleep 150ms
+Tab
+Sleep 150ms
+Tab
+Sleep 150ms
+Tab
+Sleep 150ms
+# Now on mon-input — type monitor strings
 Type "ERROR, WARN"
 Sleep 300ms
 
 # Tab past mon-save, mon-icase, Cancel, Back to reach 'Next →' button
 Tab
-Sleep 200ms
+Sleep 150ms
 Tab
-Sleep 200ms
+Sleep 150ms
 Tab
-Sleep 200ms
+Sleep 150ms
 Tab
-Sleep 200ms
+Sleep 150ms
 Tab
-Sleep 200ms
+Sleep 150ms
 # Press Enter on 'Next →' to switch to Options tab
 Enter
 Sleep 1s
 
-# In Options tab — Tab to the Launch button (past health, display, and save-name widgets)
-# Tab past health-enable checkbox
+# ContentTabs has focus in Options tab — Tab to the Launch button
+# Tab past health-enable, color-full-line, line-wrap, json-format, collapse-repeats, save-name
 Tab
-Sleep 200ms
-# Tab past color-full-line, line-wrap, json-format, collapse-repeats
+Sleep 150ms
 Tab
-Sleep 200ms
+Sleep 150ms
 Tab
-Sleep 200ms
+Sleep 150ms
 Tab
-Sleep 200ms
+Sleep 150ms
 Tab
-Sleep 200ms
-# Tab past save-name input
+Sleep 150ms
 Tab
-Sleep 200ms
-# Tab past Cancel and Back buttons to reach 'Launch →'
+Sleep 150ms
+# Tab past Cancel and Back to reach 'Launch →'
 Tab
-Sleep 200ms
+Sleep 150ms
 Tab
-Sleep 200ms
+Sleep 150ms
 Tab
-Sleep 200ms
+Sleep 150ms
 # Launch the viewer
 Enter
 Sleep 5s
