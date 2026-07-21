@@ -39,6 +39,9 @@ restarting.
   `time  LEVEL  message  key=value ...` instead of a raw JSON blob, with a
   toggle back to raw and a detail view (Enter on a clicked line) for the full
   pretty-printed object.
+- **Collapse repeated lines** — journalctl-style: consecutive identical lines
+  from the same pod fold into a single "last line repeated N times" marker,
+  toggleable, so a crash-looping pod doesn't flood the stream.
 
 ## Installation
 
@@ -48,15 +51,23 @@ and inherits its context/auth — no separate credentials or Kubernetes client
 library involved).
 
 ```bash
-git clone https://github.com/adlidev/kube-orb.git
-cd kube-orb
-pip install -e .
-# or, with uv:
-uv pip install -e .
+# Recommended — pipx keeps CLI tools in isolated environments
+pipx install kube-orb
+
+# Or with plain pip
+pip install kube-orb
 ```
 
 This installs two commands: `kube-orb` and `kube-orb-inject` (a small test
 utility — see the [User Guide](docs/USER_GUIDE.md#kube-orb-inject)).
+
+**For development / contributing:**
+
+```bash
+git clone https://github.com/adlidev/kube-orb.git
+cd kube-orb
+pip install -e . --group dev
+```
 
 ## Quick start
 
