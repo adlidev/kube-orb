@@ -195,6 +195,6 @@ MainStreamPanel.-collapsed,
 SearchPanel.-collapsed,
 MonitorPanel.-collapsed,
 HealthPanel.-collapsed {
-    height: 1;
-    min-height: 1;
+    height: auto;
+    min-height: auto;
 }

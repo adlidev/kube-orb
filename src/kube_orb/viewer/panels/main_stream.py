@@ -10,6 +10,8 @@ Features:
   - Jump-to-line from search/monitor panels
   - Optional readable reformatting of detected JSON lines, with a detail
     modal (Enter, after clicking a line) showing the full pretty-printed JSON
+  - Optional collapsing of consecutive identical lines from the same pod
+    into a single "last line repeated N times" marker (journalctl-style)
 """
 from __future__ import annotations
 
@@ -80,7 +82,7 @@ def _formatted_json_content(
     if parsed.timestamp:
         t.append(parsed.timestamp + "  ", style=dim_style)
     if parsed.level:
-        level_style = force_style or LEVEL_STYLES.get(parsed.level.upper(), "bold")
+        level_style = highlight_style or force_style or LEVEL_STYLES.get(parsed.level.upper(), "bold")
         t.append(f"{parsed.level.upper():<5} ", style=level_style)
     t.append(parsed.message, style=highlight_style or force_style or "")
     if parsed.extras:
@@ -91,15 +93,28 @@ def _formatted_json_content(
 class MainStreamPanel(Vertical):
     """Collapsible container wrapping the log display."""
 
+    # When collapse-repeats is on and a run of identical lines never breaks
+    # (e.g. a crash loop logging the exact same line forever), flush a
+    # "still repeating" marker every this-many repeats rather than holding
+    # it indefinitely — otherwise the display would look frozen even though
+    # lines are still arriving.
+    REPEAT_CHECKPOINT = 500
+
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self._collapsed = False
+        self._pre_collapse_height = None
         self._paused = False
         self._pending_count = 0
         self._color_full_line = False
         self._json_format = False
         self._json_lines: dict[int, ParsedJsonLine] = {}
         self._next_line_idx = 0
+        self._collapse_repeats = False
+        # (line, color) of the most recently WRITTEN line, while collapsing
+        # is on — used to recognize the next line as a repeat of it.
+        self._pending_repeat: tuple[LogLine, str] | None = None
+        self._repeat_count = 0
 
     def set_color_mode(self, full_line: bool) -> None:
         self._color_full_line = full_line
@@ -109,6 +124,9 @@ class MainStreamPanel(Vertical):
 
     def set_json_format(self, enabled: bool) -> None:
         self._json_format = enabled
+
+    def set_collapse_repeats(self, enabled: bool) -> None:
+        self._collapse_repeats = enabled
 
     def get_parsed_json(self, idx: int) -> ParsedJsonLine | None:
         return self._json_lines.get(idx)
@@ -124,6 +142,56 @@ class MainStreamPanel(Vertical):
         color: str,
         highlight_patterns: list[re.Pattern] | None = None,
         is_target: bool = False,
+    ) -> None:
+        # is_target lines (the jump-to-context / JSON-context views) are
+        # always their own one-off render — never folded into a repeat run.
+        if self._collapse_repeats and not is_target and self._is_repeat(line):
+            self._repeat_count += 1
+            if self._repeat_count % self.REPEAT_CHECKPOINT == 0:
+                orig_line, orig_color = self._pending_repeat
+                self._write_repeat_marker(orig_line, orig_color, self._repeat_count, ongoing=True)
+                self._repeat_count = 0
+            return
+
+        self._flush_pending_repeat()
+        self._write_line(line, color, highlight_patterns, is_target)
+        if self._collapse_repeats and not is_target:
+            self._pending_repeat = (line, color)
+            self._repeat_count = 0
+        else:
+            self._pending_repeat = None
+
+    def _is_repeat(self, line: LogLine) -> bool:
+        if self._pending_repeat is None:
+            return False
+        prev_line, _ = self._pending_repeat
+        return prev_line.pod_name == line.pod_name and prev_line.content == line.content
+
+    def _flush_pending_repeat(self) -> None:
+        """Emit the "repeated N times" marker for a just-ended run, if any."""
+        if self._repeat_count > 0 and self._pending_repeat is not None:
+            orig_line, orig_color = self._pending_repeat
+            self._write_repeat_marker(orig_line, orig_color, self._repeat_count, ongoing=False)
+        self._pending_repeat = None
+        self._repeat_count = 0
+
+    def _write_repeat_marker(self, orig_line: LogLine, color: str, n: int, ongoing: bool) -> None:
+        log = self.query_one(_LogDisplay)
+        text = Text()
+        text.append(f"[{orig_line.pod_name}] ", style=color)
+        times = "time" if n == 1 else "times"
+        msg = f"↻ last line repeated {n} {times}"
+        if ongoing:
+            msg += " so far — still repeating…"
+        text.append(msg, style="dim italic")
+        log.write(text)
+
+    def _write_line(
+        self,
+        line: LogLine,
+        color: str,
+        highlight_patterns: list[re.Pattern] | None,
+        is_target: bool,
     ) -> None:
         log = self.query_one(_LogDisplay)
         text = Text()
@@ -156,11 +224,11 @@ class MainStreamPanel(Vertical):
         else:
             text.append(prefix, style=color)
             if use_formatted:
-                hl = "bold #ffff00" if highlight_patterns else None
+                hl = "bold #ffff00 on #333300" if highlight_patterns else None
                 text.append_text(_formatted_json_content(parsed, force_style=None, highlight_style=hl))
             elif highlight_patterns:
                 _append_with_highlights(text, content, highlight_patterns,
-                                        base_style="", hl_style="bold #ffff00")
+                                        base_style="", hl_style="bold #ffff00 on #333300")
             else:
                 text.append(content)
 
@@ -176,6 +244,8 @@ class MainStreamPanel(Vertical):
         self.query_one(_LogDisplay).clear()
         self._json_lines.clear()
         self._next_line_idx = 0
+        self._pending_repeat = None
+        self._repeat_count = 0
 
     def set_paused(self, paused: bool, pending: int = 0) -> None:
         self._paused = paused
@@ -191,6 +261,12 @@ class MainStreamPanel(Vertical):
         log = self.query_one(_LogDisplay)
         self._collapsed = not self._collapsed
         log.display = not self._collapsed
+        if self._collapsed:
+            self._pre_collapse_height = self.styles.height
+            self.styles.height = "auto"
+        else:
+            self.styles.height = self._pre_collapse_height
+        self.set_class(self._collapsed, "-collapsed")
         self.query_one(_StreamHeader).update_collapsed(self._collapsed)
 
 

@@ -2,7 +2,8 @@
 MonitorPanel — passive accumulation of monitor-string hits.
 
 Lines matching monitor patterns are copied here without interrupting the main stream.
-Double-clicking a hit pauses the main stream and jumps to it.
+A single click selects a hit (Enter then shows ± context lines from the buffer,
+like `grep -C`); double-clicking pauses the main stream and jumps to it.
 Stream mode only.
 """
 from __future__ import annotations
@@ -12,6 +13,7 @@ import time
 
 from rich.text import Text
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.containers import ScrollableContainer, Vertical
 from textual.message import Message
 from textual.widgets import Label
@@ -42,6 +44,7 @@ class MonitorPanel(Vertical):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self._collapsed = False
+        self._pre_collapse_height = None
         self._lines: list[LogLine] = []
         self._color_map: dict[str, str] = {}
         self._color_full_line = False
@@ -114,11 +117,28 @@ class MonitorPanel(Vertical):
     def toggle_collapsed(self) -> None:
         self._collapsed = not self._collapsed
         self.query_one("#monitor-scroll").display = not self._collapsed
+        if self._collapsed:
+            self._pre_collapse_height = self.styles.height
+            self.styles.height = "auto"
+        else:
+            self.styles.height = self._pre_collapse_height
+        self.set_class(self._collapsed, "-collapsed")
         self.query_one(_MonitorHeader).update_collapsed(self._collapsed)
 
 
 class _MonitorRow(Label):
-    """A single monitor hit. Double-click posts MonitorPanel.LineSelected."""
+    """
+    A single monitor hit. Click selects (and focuses) it — Enter then opens
+    a modal with ± context lines from the buffer around it. Double-click
+    instead posts MonitorPanel.LineSelected, pausing and jumping to it in
+    the main stream.
+    """
+
+    can_focus = True
+
+    BINDINGS = [
+        Binding("enter", "show_context", "Context", show=True),
+    ]
 
     def __init__(self, text: Text, line: LogLine, **kwargs) -> None:
         super().__init__(text, **kwargs)
@@ -126,12 +146,18 @@ class _MonitorRow(Label):
         self._last_click = 0.0
 
     def on_click(self) -> None:
+        self.focus()
         now = time.monotonic()
         if now - self._last_click < _DOUBLE_CLICK_SECONDS:
             self.post_message(MonitorPanel.LineSelected(self.line))
             self._last_click = 0.0  # require two fresh clicks for the next jump
         else:
             self._last_click = now
+
+    def action_show_context(self) -> None:
+        app = self.app
+        if hasattr(app, "show_monitor_context"):
+            app.show_monitor_context(self.line)  # type: ignore[union-attr]
 
 
 def _build_text(

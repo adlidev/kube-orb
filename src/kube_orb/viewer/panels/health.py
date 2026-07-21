@@ -54,6 +54,7 @@ class HealthPanel(Vertical):
         self._config = config
         self._rows: dict[str, _HealthRow] = {}   # pod_name → row
         self._collapsed = False
+        self._pre_collapse_height = None
         self.display = False   # hidden until first unhealthy pod
 
     def compose(self) -> ComposeResult:
@@ -195,6 +196,12 @@ class HealthPanel(Vertical):
     def toggle_collapsed(self) -> None:
         self._collapsed = not self._collapsed
         self.query_one("#health-table").display = not self._collapsed
+        if self._collapsed:
+            self._pre_collapse_height = self.styles.height
+            self.styles.height = "auto"
+        else:
+            self.styles.height = self._pre_collapse_height
+        self.set_class(self._collapsed, "-collapsed")
         self.query_one(_HealthHeader).update_collapsed(self._collapsed)
 
 

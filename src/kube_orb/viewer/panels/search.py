@@ -39,6 +39,7 @@ class SearchPanel(Vertical):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self._collapsed = False
+        self._pre_collapse_height = None
         self._results: list[LogLine] = []
         self._color_map: dict[str, str] = {}
         self._color_full_line = False
@@ -126,6 +127,12 @@ class SearchPanel(Vertical):
         self._collapsed = not self._collapsed
         for widget in self.query("#search-input, #search-results"):
             widget.display = not self._collapsed
+        if self._collapsed:
+            self._pre_collapse_height = self.styles.height
+            self.styles.height = "auto"
+        else:
+            self.styles.height = self._pre_collapse_height
+        self.set_class(self._collapsed, "-collapsed")
         self.query_one(_SearchHeader).update_collapsed(self._collapsed)
 
     def action_close(self) -> None:
@@ -141,7 +148,7 @@ def _append_highlighted(
     content: str,
     pattern: re.Pattern,
     base_style: str = "",
-    hl_style: str = "bold #ffff00",
+    hl_style: str = "bold #ffff00 on #333300",
 ) -> None:
     cursor = 0
     for m in pattern.finditer(content):
