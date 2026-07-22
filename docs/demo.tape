@@ -92,11 +92,14 @@ Sleep 200ms
 # Tab past the Cancel button
 Tab
 Sleep 200ms
-# Tab to the 'Next →' button — press Enter to switch to Patterns tab
+# Tab past the 'Next →' button to ContentTabs (tab strip)
 Tab
 Sleep 200ms
-Enter
-Sleep 1s
+Tab
+Sleep 300ms
+# Switch to Patterns tab
+Right
+Sleep 800ms
 
 # ContentTabs has focus after tab switch — Tab into the Patterns tab
 # Tab past 'Edit in text editor' button
@@ -155,7 +158,7 @@ Sleep 150ms
 Type "ERROR, WARN"
 Sleep 300ms
 
-# Tab past mon-save, mon-icase, Cancel, Back to reach 'Next →' button
+# Tab past mon-save, mon-icase, Cancel, Back, Next → to reach ContentTabs
 Tab
 Sleep 150ms
 Tab
@@ -166,9 +169,11 @@ Tab
 Sleep 150ms
 Tab
 Sleep 150ms
-# Press Enter on 'Next →' to switch to Options tab
-Enter
-Sleep 1s
+Tab
+Sleep 300ms
+# Switch to Options tab
+Right
+Sleep 800ms
 
 # ContentTabs has focus in Options tab — Tab to the Launch button
 # Tab past health-enable, color-full-line, line-wrap, json-format, collapse-repeats, save-name

@@ -434,6 +434,52 @@ class SinglePageWizard(Screen[SessionConfig | None]):
         if cfg.name:
             self.query_one("#save-name", Input).value = cfg.name
 
+    def _reset_to_defaults(self) -> None:
+        """Undo any saved-config application when the user clears the cfg-select dropdown."""
+        # Deployment pending selection — back to default all-checked
+        self._pending_deployments = None
+
+        # Namespace — clear manual input, reset dropdown to initial namespace
+        self.query_one("#ns-input", Input).value = ""
+        ns_sel = self.query_one("#ns-select", Select)
+        if self._initial_namespace in self._known_namespaces:
+            ns_sel.value = self._initial_namespace
+        elif self._known_namespaces:
+            ns_sel.value = self._known_namespaces[0]
+        self._refresh_deployments()
+
+        # Patterns — deactivate all saved-string checkboxes, clear inputs
+        self._populate_string_checks("filter-checks", self._saved_filters,   [])
+        self._populate_string_checks("hl-checks",     self._saved_highlights, [])
+        self._populate_string_checks("mon-checks",    self._saved_monitors,   [])
+        self.query_one("#filter-input", Input).value  = ""
+        self.query_one("#hl-input",     Input).value  = ""
+        self.query_one("#mon-input",    Input).value  = ""
+        self.query_one("#filter-icase", Checkbox).value = False
+        self.query_one("#hl-icase",     Checkbox).value = False
+        self.query_one("#mon-icase",    Checkbox).value = False
+
+        # Mode — back to Stream, clear all duration inputs
+        buttons = list(self.query_one("#mode-radio", RadioSet).query(RadioButton))
+        if buttons:
+            buttons[0].value = True
+        self.query_one("#dump-tail",    Input).value = ""
+        self.query_one("#dump-since",   Input).value = ""
+        self.query_one("#stream-since", Input).value = ""
+
+        # Health
+        self.query_one("#health-enable",   Checkbox).value = False
+        self.query_one("#health-interval", Input).value    = "5"
+
+        # Display options
+        self.query_one("#color-full-line",  Checkbox).value = False
+        self.query_one("#line-wrap",        Checkbox).value = True
+        self.query_one("#json-format",      Checkbox).value = False
+        self.query_one("#collapse-repeats", Checkbox).value = False
+
+        # Save-config name
+        self.query_one("#save-name", Input).value = ""
+
     # ── Events ────────────────────────────────────────────────────────────────
 
     def _switch_tab(self, tab_id: str) -> None:
@@ -523,6 +569,8 @@ class SinglePageWizard(Screen[SessionConfig | None]):
             if value and value != "__none__" and value is not Select.BLANK:
                 ns, _, name = str(value).partition("::")
                 self._apply_saved_config(ns, name)
+            else:
+                self._reset_to_defaults()
 
     # ── Launch ────────────────────────────────────────────────────────────────
 

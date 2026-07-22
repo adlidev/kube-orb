@@ -30,7 +30,14 @@ from .panels.health import HealthPanel
 from .panels.main_stream import MainStreamPanel
 from .panels.monitor import MonitorPanel
 from .panels.search import SearchPanel
-from .widgets import JsonDetailModal, PaneSizeModal, PodSelectorModal, SaveDialog, StringEditModal
+from .widgets import (
+    JsonDetailModal,
+    MonitorContextModal,
+    PaneSizeModal,
+    PodSelectorModal,
+    SaveDialog,
+    StringEditModal,
+)
 
 _scrollbar.install()
 
@@ -67,6 +74,7 @@ class ViewerApp(App):
         Binding("p",       "manage_pods",     "Pods",            show=True,  priority=True),
         Binding("l",       "edit_layout",     "Pane sizes",      show=True,  priority=True),
         Binding("j",       "toggle_json",     "JSON format",     show=True,  priority=True),
+        Binding("c",       "toggle_collapse", "Collapse repeats", show=True, priority=True),
     ]
 
     def __init__(self, config: SessionConfig) -> None:
@@ -171,6 +179,7 @@ class ViewerApp(App):
         panel.set_color_mode(self._config.color_full_line)
         panel.set_wrap(self._config.line_wrap)
         panel.set_json_format(self._config.json_format)
+        panel.set_collapse_repeats(self._config.collapse_repeats)
         search_panel = self.query_one(SearchPanel)
         search_panel.set_wrap(self._config.line_wrap)
         search_panel.set_color_mode(self._config.color_full_line)
@@ -671,6 +680,13 @@ class ViewerApp(App):
         self._rerender_main_stream()
         self.notify(f"JSON format: {'on' if self._config.json_format else 'raw'}")
 
+    def action_toggle_collapse(self) -> None:
+        self._config.collapse_repeats = not self._config.collapse_repeats
+        panel = self.query_one(MainStreamPanel)
+        panel.set_collapse_repeats(self._config.collapse_repeats)
+        self._rerender_main_stream()
+        self.notify(f"Collapse repeats: {'on' if self._config.collapse_repeats else 'off'}")
+
     def show_json_detail(self, idx: int | None) -> None:
         if idx is None:
             return
@@ -678,6 +694,29 @@ class ViewerApp(App):
         if parsed is None:
             return
         self.push_screen(JsonDetailModal(parsed.pretty))
+
+    def show_monitor_context(self, target: LogLine) -> None:
+        """Open a modal with lines of context around a monitor hit, like
+        `grep -C` — the monitor panel itself only ever shows the matching
+        line, which is often not enough to tell what happened. The modal
+        starts with a small window and grows/shrinks it live via +/-.
+
+        Context is scoped to the SAME pod as the hit, not sliced from the
+        raw session buffer — that buffer interleaves every concurrently
+        streamed pod in arrival order, so its neighboring entries are
+        essentially unrelated lines from whichever other pod happened to log
+        around the same moment, not anything that led up to the hit.
+        """
+        pod_lines = [l for l in self._buffer if l.pod_name == target.pod_name]
+        # Try identity first, fall back to content match if buffer was trimmed
+        idx = next((i for i, l in enumerate(pod_lines) if l is target), None)
+        if idx is None:
+            idx = next((i for i, l in enumerate(pod_lines) if l.content == target.content), None)
+        if idx is None:
+            self.notify("Line no longer in buffer.", severity="warning")
+            return
+
+        self.push_screen(MonitorContextModal(pod_lines, idx, target.pod_name))
 
     def action_toggle_search(self) -> None:
         panel = self.query_one(SearchPanel)

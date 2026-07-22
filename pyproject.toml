@@ -4,11 +4,32 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kube-orb"
-version = "0.1.0"
-description = "Interactive Kubernetes log viewer with TUI"
+version = "1.0.0"
+description = "Interactive terminal UI for streaming and filtering Kubernetes pod logs across multiple deployments"
+readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
-keywords = ["kubernetes", "logs", "tui", "kubectl", "devtools"]
+authors = [
+    { name = "Adli Waziri", email = "boulderadli@gmail.com" }
+]
+keywords = ["kubernetes", "k8s", "logs", "tui", "kubectl", "devops", "sre", "observability", "textual"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Logging",
+    "Topic :: System :: Monitoring",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Utilities",
+]
 dependencies = [
     "textual>=0.61.0",
     "click>=8.1",

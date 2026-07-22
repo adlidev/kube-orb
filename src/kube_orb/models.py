@@ -128,6 +128,7 @@ class SessionConfig:
     color_full_line: bool = False  # True = color entire line; False = color pod name prefix only
     line_wrap: bool = True
     json_format: bool = False  # True = reformat detected JSON lines (level/message/time); False = raw
+    collapse_repeats: bool = False  # True = collapse consecutive identical lines (journalctl-style)
 
     # Config name — set when user chooses to save
     name: str | None = None

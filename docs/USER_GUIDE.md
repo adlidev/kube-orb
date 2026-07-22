@@ -14,6 +14,7 @@ auth/config to set up, and no Python Kubernetes client involved. If
   - [Pausing and resuming](#pausing-and-resuming)
   - [Resizing panes](#resizing-panes)
   - [JSON log formatting](#json-log-formatting)
+  - [Collapsing repeated lines](#collapsing-repeated-lines)
 - [Pattern syntax (filters / highlights / monitors)](#pattern-syntax-filters--highlights--monitors)
 - [Saved patterns vs. saved configs](#saved-patterns-vs-saved-configs)
 - [Pod health monitoring](#pod-health-monitoring)
@@ -98,6 +99,7 @@ Providing neither `-p`/`--all-pods` nor `-c` launches the wizard automatically.
 | `P` | Add/remove deployments from the live stream |
 | `L` | Set pane sizes by percentage |
 | `J` | Toggle JSON log formatting (readable vs. raw) |
+| `C` | Toggle collapsing consecutive identical lines |
 | `Enter` | (After clicking a detected JSON line) show its full pretty-printed JSON |
 | `Ctrl+S` | Save the buffered log to a file |
 | `Ctrl+Q` | Quit |
@@ -114,7 +116,12 @@ dismisses the selected row.
   result to pause and jump to that point in the main stream.
 - **Monitor** (stream mode) — lines matching your monitor patterns are copied
   here as they arrive, without disturbing your position in the main stream.
-  Double-click a hit to pause and jump to it, same as search.
+  Double-click a hit to pause and jump to it, same as search. Click once to
+  select it, then press `Enter` to see it with a few lines of that same
+  pod's surrounding log output (like `grep -C`) in a modal — the monitor
+  list itself only ever shows the matching line, which is often not enough
+  on its own to tell what happened. Inside the modal, `+`/`-` grow or shrink
+  how many lines of context are shown.
 - **Pod health** (`--health`) — hidden until a watched pod becomes unhealthy
   (not `Running`, or its restart count crosses the threshold). See
   [Pod health monitoring](#pod-health-monitoring).
@@ -171,6 +178,26 @@ aren't JSON are left untouched either way.
   match on a formatted JSON line emphasizes the whole message instead of a
   precise span, since character offsets from the raw text don't carry over
   to the reformatted one.
+
+### Collapsing repeated lines
+
+journalctl-style collapsing for a pod stuck crash-looping or spamming the
+same error: when a line from a pod repeats identically right after itself,
+kube-orb shows it once and folds every immediate repeat into a single
+`↻ last line repeated N times` marker instead of flooding the stream with
+copies of the same line.
+
+- Turn it on by default from the wizard's Options tab ("Collapse repeated
+  lines"), or toggle it live with `C`.
+- Only *consecutive* lines from the *same pod* collapse — a repeat that's
+  interrupted by any other line (even the exact same message from a
+  different pod) starts a new run instead of extending the old one.
+- If a run never breaks (the pod repeats the same line forever), a
+  "still repeating…" checkpoint marker is flushed periodically so the
+  stream doesn't look frozen while it's actually still collapsing lines.
+- The underlying buffer still holds every individual line — collapsing is
+  purely a main-stream display simplification. Search, save-to-file, and
+  monitor hits are unaffected and still see every occurrence.
 
 ## Pattern syntax (filters / highlights / monitors)
 

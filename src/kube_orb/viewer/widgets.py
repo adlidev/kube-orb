@@ -1,15 +1,17 @@
 """
 Shared viewer widgets:
-  - DragResizeHeader — mixin: click toggles collapse, vertical drag resizes
-  - StringEditModal  — modal editor for F/H/M keybinds
-  - ConfirmDialog    — yes/no prompt for destructive actions
-  - SaveDialog       — filename prompt for Ctrl+S
-  - PodSelectorModal — add/remove deployments from the live stream
-  - PaneSizeModal    — set pane heights by percentage (L keybind)
-  - JsonDetailModal  — full pretty-printed JSON for a clicked log line
+  - DragResizeHeader    — mixin: click toggles collapse, vertical drag resizes
+  - StringEditModal     — modal editor for F/H/M keybinds
+  - ConfirmDialog       — yes/no prompt for destructive actions
+  - SaveDialog          — filename prompt for Ctrl+S
+  - PodSelectorModal    — add/remove deployments from the live stream
+  - PaneSizeModal       — set pane heights by percentage (L keybind)
+  - JsonDetailModal     — full pretty-printed JSON for a clicked log line
+  - MonitorContextModal — ± context lines around a clicked monitor hit
 """
 from __future__ import annotations
 
+from rich.text import Text
 from textual import events
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -19,6 +21,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Checkbox, Input, Label, Static
 
 from ..config import parse_string_input
+from ..models import LogLine
 
 
 # ─── Draggable/collapsible panel header ──────────────────────────────────────
@@ -551,6 +554,115 @@ class JsonDetailModal(ModalScreen[None]):
                 # would otherwise try to parse as markup tags.
                 yield Static(self._pretty, id="json-detail-body", markup=False)
             yield Static("[dim]Esc or Enter to close[/dim]", id="json-detail-hint", markup=True)
+
+    def action_close(self) -> None:
+        self.dismiss(None)
+
+
+# ─── Monitor context modal (Enter, after clicking a monitor hit) ─────────────
+
+class MonitorContextModal(ModalScreen[None]):
+    """
+    ± N lines of same-pod context around a clicked monitor hit, like
+    `grep -C`. Starts small and grows/shrinks live via +/- — filtering the
+    pod's lines out of the buffer already costs the same regardless of how
+    many end up shown, and the body scrolls, so there's no real reason to
+    hard-cap the window at a small fixed number.
+    """
+
+    DEFAULT_CONTEXT = 3
+    STEP = 5
+    MAX_CONTEXT = 500  # sanity cap, not a meaningful UX limit
+
+    DEFAULT_CSS = """
+    MonitorContextModal {
+        align: center middle;
+    }
+    #monitor-context-dialog {
+        background: $surface;
+        border: thick $accent;
+        padding: 1 2;
+        width: 90%;
+        height: 80%;
+    }
+    #monitor-context-title {
+        text-style: bold;
+        color: $accent;
+        margin-bottom: 1;
+    }
+    #monitor-context-scroll {
+        height: 1fr;
+        border: tall $panel;
+    }
+    #monitor-context-body {
+        width: auto;
+        padding: 0 1;
+    }
+    #monitor-context-hint {
+        color: $text-muted;
+        margin-top: 1;
+    }
+    """
+
+    BINDINGS = [
+        Binding("escape", "close",  "Close"),
+        Binding("enter",  "close",  "Close"),
+        Binding("+",      "grow",   "More context", show=True),
+        Binding("=",      "grow",   "More context", show=False),
+        Binding("-",      "shrink", "Less context", show=True),
+    ]
+
+    def __init__(self, pod_lines: list[LogLine], idx: int, pod_name: str, **kwargs) -> None:
+        """pod_lines: every buffered line from this hit's pod, in order.
+        idx: the hit's own position within pod_lines."""
+        super().__init__(**kwargs)
+        self._pod_lines = pod_lines
+        self._idx = idx
+        self._pod_name = pod_name
+        self._context_n = self.DEFAULT_CONTEXT
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="monitor-context-dialog"):
+            # Scoped to one pod — the title makes that explicit, since the
+            # lines shown are neighbors in that pod's own stream, not
+            # whatever else was arriving around the same wall-clock moment.
+            yield Static(f"Monitor hit context — {self._pod_name}", id="monitor-context-title")
+            with ScrollableContainer(id="monitor-context-scroll"):
+                yield Static(self._build_body(), id="monitor-context-body", markup=False)
+            yield Static(self._hint(), id="monitor-context-hint", markup=True)
+
+    def _build_body(self) -> Text:
+        start = max(0, self._idx - self._context_n)
+        end = self._idx + self._context_n + 1
+        body = Text()
+        for i, line in enumerate(self._pod_lines[start:end]):
+            if i:
+                body.append("\n")
+            if start + i == self._idx:
+                body.append("▶ ", style="bold #ff8800")
+                body.append(line.content, style="bold white on #2a2a00")
+            else:
+                body.append("  ")
+                body.append(line.content, style="dim")
+        return body
+
+    def _hint(self) -> str:
+        return (
+            f"[dim]±{self._context_n} lines · +/- for more or less · "
+            "Esc or Enter to close[/dim]"
+        )
+
+    def _refresh(self) -> None:
+        self.query_one("#monitor-context-body", Static).update(self._build_body())
+        self.query_one("#monitor-context-hint", Static).update(self._hint())
+
+    def action_grow(self) -> None:
+        self._context_n = min(self._context_n + self.STEP, self.MAX_CONTEXT)
+        self._refresh()
+
+    def action_shrink(self) -> None:
+        self._context_n = max(self._context_n - self.STEP, 0)
+        self._refresh()
 
     def action_close(self) -> None:
         self.dismiss(None)
