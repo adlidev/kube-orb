@@ -198,7 +198,7 @@ class HealthPanel(Vertical):
         self.query_one("#health-table").display = not self._collapsed
         if self._collapsed:
             self._pre_collapse_height = self.styles.height
-            self.styles.height = "auto"
+            self.styles.height = None
         else:
             self.styles.height = self._pre_collapse_height
         self.set_class(self._collapsed, "-collapsed")
